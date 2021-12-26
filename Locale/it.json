@@ -1,0 +1,31 @@
+{
+	"start": [
+		"Ciao {user.mention_markdown_v2()}!"
+	],
+	"help": [
+		"Non c'è nessuno qui ad aiutarti (per ora)."
+	],
+	"echo": {
+		"empty": [
+			"Echo cosa? Dimmi qualcosa da ripetere."
+		]
+	},
+	"wish": {
+		"empty": [
+			"*Non hai desiderato nulla! ✨*\n\n_Non succede niente..._"
+		],
+		"done": [
+			"*Il tuo desiderio è stato espresso! ✨*\n\n_Probabilità che si avveri: {0}%_"
+		]
+	},
+	"hug": {
+		"empty": [
+			"*Un abbraccio a chi? Non hai risposto a nessuno...*"
+		],
+		"bot": [],
+		"self": [],
+		"others": [
+			"*{0} abbraccia {1} forte forte... :3*"
+		]
+	}
+}

@@ -1,0 +1,31 @@
+{
+	"start": [
+		"Hi {user.mention_markdown_v2()}!"
+	],
+	"help": [
+		"There's no one around to help (yet)."
+	],
+	"echo": {
+		"empty": [
+			"Echo what? Give me something to repeat."
+		]
+	},
+	"wish": {
+		"empty": [
+			"*You wished for nothing! ✨*\n\n_Nothing happens..._"
+		],
+		"done": [
+			"*Your wish has been cast! ✨*\n\n_Chance of success: {0}%_"
+		]
+	},
+	"hug": {
+		"empty": [
+			"*Hug? You didn't reply to anyone...*"
+		],
+		"bot": [],
+		"self": [],
+		"others": [
+			"*{0} hugs {1} tightly... :3*"
+		]
+	}
+}
