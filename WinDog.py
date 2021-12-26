@@ -19,13 +19,24 @@ def CharEscape(String, Escape=''):
 	if Escape == 'MARKDOWN':
 		return escape_markdown(String, version=2)
 	elif Escape == 'MARKDOWN_SPEECH':
-		for c in '.!()[]':
+		for c in '.!_()[]<>':
 			String = String.replace(c, '\\'+c)
 		return String
 	else:
 		for c in Escape:
 			String = String.replace(c, '\\'+c)
 		return String
+
+def CommandFilter(Message):
+	return Message.lower().split(' ')[0][1:].split('@')[0]
+
+def RandPercent():
+	Num = randint(0,100)
+	if Num == 100:
+		Num = str(Num) + '\.00'
+	else:
+		Num = str(Num) + '\.' + str(randint(0,9)) + str(randint(0,9))
+	return Num
 
 def start(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
@@ -44,13 +55,16 @@ def help(update:Update, context:CallbackContext) -> None:
 def echo(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
 		Message = update.message.text
-		if Message.lower()[1:] == 'echo':
+		if CommandFilter(Message) == 'echo':
 			Text = CharEscape(choice(Locale[Lang]['echo']['empty']), '.!')
+			update.message.reply_markdown_v2(
+				Text,
+				reply_to_message_id=update.message.message_id)
 		else:
 			Text = Message[5:]
-		update.message.reply_markdown_v2(
-			Text,
-			reply_to_message_id=update.message.message_id)
+			update.message.reply_text(
+				Text,
+				reply_to_message_id=update.message.message_id)
 
 def ping(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
@@ -60,32 +74,34 @@ def ping(update:Update, context:CallbackContext) -> None:
 
 def wish(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
-		if update.message.text.lower()[1:] == 'wish':
+		if CommandFilter(update.message.text) == 'wish':
 			Text = choice(Locale[Lang]['wish']['empty'])
 		else:
 			Text = choice(Locale[Lang]['wish']['done'])
 		update.message.reply_markdown_v2(
-			CharEscape(Text, '.!').format(str(randint(0,100))+'\.'+str(randint(0,9))+str(randint(0,9))),
+			CharEscape(Text, '.!').format(RandPercent()),
 			reply_to_message_id=update.message.message_id)
 
 def multifun(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
-		Key = update.message.text.split(' ')[0][1:]
+		Key = CommandFilter(update.message.text)
 		ReplyToMessage = update.message.message_id
 		if update.message.reply_to_message:
 			ReplyFromUID = update.message.reply_to_message.from_user.id
-			if ReplyFromUID == TGID:
+			if ReplyFromUID == TGID and 'bot' in Locale[Lang][Key]:
 				Text = CharEscape(choice(Locale[Lang][Key]['bot']), 'MARKDOWN_SPEECH')
-			elif ReplyFromUID == update.message.from_user.id:
+			elif ReplyFromUID == update.message.from_user.id and 'self' in Locale[Lang][Key]:
 				FromUName = CharEscape(update.message.from_user.first_name, 'MARKDOWN')
 				Text = CharEscape(choice(Locale[Lang][Key]['self']), 'MARKDOWN_SPEECH').format(FromUName)
 			else:
-				FromUName = CharEscape(update.message.from_user.first_name, 'MARKDOWN')
-				ToUName = CharEscape(update.message.reply_to_message.from_user.first_name, 'MARKDOWN')
-				Text = CharEscape(choice(Locale[Lang][Key]['others']), 'MARKDOWN_SPEECH').format(FromUName,ToUName)
-				ReplyToMessage = update.message.reply_to_message.message_id
+				if 'others' in Locale[Lang][Key]:
+					FromUName = CharEscape(update.message.from_user.first_name, 'MARKDOWN')
+					ToUName = CharEscape(update.message.reply_to_message.from_user.first_name, 'MARKDOWN')
+					Text = CharEscape(choice(Locale[Lang][Key]['others']), 'MARKDOWN_SPEECH').format(FromUName,ToUName)
+					ReplyToMessage = update.message.reply_to_message.message_id
 		else:
-			Text = CharEscape(choice(Locale[Lang][Key]['empty']), 'MARKDOWN_SPEECH')
+			if 'empty' in Locale[Lang][Key]:
+				Text = CharEscape(choice(Locale[Lang][Key]['empty']), 'MARKDOWN_SPEECH')
 		update.message.reply_markdown_v2(
 			Text,
 			reply_to_message_id=ReplyToMessage)
@@ -93,7 +109,7 @@ def multifun(update:Update, context:CallbackContext) -> None:
 
 def filters(update:Update, context:CallbackContext) -> None:
 	pass
-	"""
+	'''
 	if CmdRestrict(update):
 		ChatID = update.message.chat.id
 		if ChatID in Private['Chats'] and 'Filters' in Private['Chats'][ChatID]:
@@ -102,17 +118,17 @@ def filters(update:Update, context:CallbackContext) -> None:
 					update.message.reply_text(
 						Private['Chats'][ChatID]['Filters'][f],
 						reply_to_message_id=update.message.message_id)
-	"""
+	'''
 
 def setfilter(update:Update, context:CallbackContext) -> None:
 	pass
-	"""
+	'''
 	if CmdRestrict(update):
 		ChatID = update.message.chat.id
 		if ChatID not in Private['Chats'] or 'Filters' not in Private['Chats'][ChatID]:
 			Private['Chats'][ChatID] = {'Filters':{}}
 		Private['Chats'][ChatID]['Filters'][update.message.text] = {'Text':0}
-	"""
+	'''
 
 def CmdRestrict(update):
 	if not TGRestrict:
@@ -147,16 +163,19 @@ def main() -> None:
 	updater = Updater(TGToken)
 	dispatcher = updater.dispatcher
 
-	dispatcher.add_handler(CommandHandler("start", start))
-	dispatcher.add_handler(CommandHandler("help", help))
-	dispatcher.add_handler(CommandHandler("echo", echo))
-	dispatcher.add_handler(CommandHandler("ping", ping))
-	dispatcher.add_handler(CommandHandler("wish", wish))
-	dispatcher.add_handler(CommandHandler("hug", multifun))
-	dispatcher.add_handler(CommandHandler("pat", multifun))
-	dispatcher.add_handler(CommandHandler("poke", multifun))
-	dispatcher.add_handler(CommandHandler("cuddle", multifun))
-	#dispatcher.add_handler(CommandHandler("setfilter", setfilter))
+	dispatcher.add_handler(CommandHandler('start', start))
+	dispatcher.add_handler(CommandHandler('help', help))
+	dispatcher.add_handler(CommandHandler('echo', echo))
+	dispatcher.add_handler(CommandHandler('ping', ping))
+	dispatcher.add_handler(CommandHandler('wish', wish))
+	dispatcher.add_handler(CommandHandler('hug', multifun))
+	dispatcher.add_handler(CommandHandler('pat', multifun))
+	dispatcher.add_handler(CommandHandler('poke', multifun))
+	dispatcher.add_handler(CommandHandler('cuddle', multifun))
+	dispatcher.add_handler(CommandHandler('floor', multifun))
+	dispatcher.add_handler(CommandHandler('hands', multifun))
+	dispatcher.add_handler(CommandHandler('sessocto', multifun))
+	#dispatcher.add_handler(CommandHandler('setfilter', setfilter))
 	dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, filters))
 
 	print('Starting WinDog...')

@@ -83,7 +83,57 @@
 		],
 		"others": [
 			"*{0} fa le coccole a {1} 🥰*",
-			"*{0} ti fa le coccole!*"
+			"*{0} ti fa le coccole! 🤗️*"
+		]
+	},
+	"floor": {
+		"empty": [
+			"*Il pavimento?*",
+			"*Il pavimentowo?*",
+			"*Vuoi mettere qualcuno sul pavimento? Rispondi ad un suo messaggio.*"
+		],
+		"bot": [
+			"*Sono già sul pavimento.. sono sempre sul pavimento.*"
+		],
+		"self": [
+			"*{0} si mette sul pavimento.*"
+		],
+		"others": [
+			"*{0} solleva {1} dal pavimento.*",
+			"*{0} ti prende in braccio e ti appoggia con delicatezza sul pavimento.*"
+		]
+	},
+	"hands": {
+		"empty": [
+			"*Le @manineuwu? 😳️*",
+			"*A chi vuoi dare le manine? Rispondi a qualcuno.*"
+		],
+		"bot": [
+			"*Io non le ho le manine,.,. 😭️*"
+		],
+		"self": [
+			"*{0} fa handholding in solitudine... 😶️*",
+			"*{0} non ha nessuno a cui dare la mano 😐️*"
+		],
+		"others": [
+			"*{0} prende le mani di {1} 😳️❤️*",
+			"*{0} vuole darti la sua manina 🥺👉️👈️*"
+		]
+	},
+	"sessocto": {
+		"empty": [
+			"*Sessocto?!?! 😳️*",
+			"Vuoi fare sessocto con qualcuno? Rispondi ad un suo messaggio.*"
+		],
+		"bot": [
+			"*Vorrei anche io sessocto ma non ho un corpo...😥️*"
+		],
+		"self": [
+			"*{0} fa sessocto in singleplayer 😳️*"
+		],
+		"others": [
+			"*{0} vuole fare sessocto con te... 👀️*",
+			"*{0} e {1} fanno sessocto insieme 💑️*"
 		]
 	}
 }
