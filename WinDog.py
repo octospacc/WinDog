@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# =================================== #
+# WinDog multi-purpose chatbot
+# Licensed under AGPLv3 by OctoSpacc
+# =================================== #
+
 import json
 from random import choice, randint
 from telegram import Update, ForceReply, Bot
@@ -63,7 +68,7 @@ def wish(update:Update, context:CallbackContext) -> None:
 			CharEscape(Text, '.!').format(str(randint(0,100))+'\.'+str(randint(0,9))+str(randint(0,9))),
 			reply_to_message_id=update.message.message_id)
 
-def multijoke(update:Update, context:CallbackContext) -> None:
+def multifun(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
 		Key = update.message.text.split(' ')[0][1:]
 		ReplyToMessage = update.message.message_id
@@ -147,10 +152,10 @@ def main() -> None:
 	dispatcher.add_handler(CommandHandler("echo", echo))
 	dispatcher.add_handler(CommandHandler("ping", ping))
 	dispatcher.add_handler(CommandHandler("wish", wish))
-	dispatcher.add_handler(CommandHandler("hug", multijoke))
-	dispatcher.add_handler(CommandHandler("pat", multijoke))
-	dispatcher.add_handler(CommandHandler("poke", multijoke))
-	dispatcher.add_handler(CommandHandler("cuddle", multijoke))
+	dispatcher.add_handler(CommandHandler("hug", multifun))
+	dispatcher.add_handler(CommandHandler("pat", multifun))
+	dispatcher.add_handler(CommandHandler("poke", multifun))
+	dispatcher.add_handler(CommandHandler("cuddle", multifun))
 	#dispatcher.add_handler(CommandHandler("setfilter", setfilter))
 	dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, filters))
 
