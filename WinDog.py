@@ -2,18 +2,25 @@
 
 import json
 from random import choice, randint
-from telegram import Update, ForceReply
+from telegram import Update, ForceReply, Bot
+from telegram.utils.helpers import escape_markdown
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from Config import *
 
 Private = {}
 Locale = {}
 
-def MDSanitize(String, Exclude=[]):
-	for c in ['!', '.']:
-		if c not in Exclude:
+def CharEscape(String, Escape=''):
+	if Escape == 'MARKDOWN':
+		return escape_markdown(String, version=2)
+	elif Escape == 'MARKDOWN_SPEECH':
+		for c in '.!()[]':
 			String = String.replace(c, '\\'+c)
-	return String
+		return String
+	else:
+		for c in Escape:
+			String = String.replace(c, '\\'+c)
+		return String
 
 def start(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
@@ -25,25 +32,25 @@ def start(update:Update, context:CallbackContext) -> None:
 
 def help(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
-		update.message.reply_text(
-			choice(Locale[Lang]['help']),
+		update.message.reply_markdown_v2(
+			CharEscape(choice(Locale[Lang]['help']), '.!()'),
 			reply_to_message_id=update.message.message_id)
 
 def echo(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
 		Message = update.message.text
 		if Message.lower()[1:] == 'echo':
-			Text = choice(Locale[Lang]['echo']['empty'])
+			Text = CharEscape(choice(Locale[Lang]['echo']['empty']), '.!')
 		else:
 			Text = Message[5:]
-		update.message.reply_text(
+		update.message.reply_markdown_v2(
 			Text,
 			reply_to_message_id=update.message.message_id)
 
 def ping(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
-		update.message.reply_text(
-			'Pong!',
+		update.message.reply_markdown_v2(
+			'*Pong\!*',
 			reply_to_message_id=update.message.message_id)
 
 def wish(update:Update, context:CallbackContext) -> None:
@@ -53,22 +60,33 @@ def wish(update:Update, context:CallbackContext) -> None:
 		else:
 			Text = choice(Locale[Lang]['wish']['done'])
 		update.message.reply_markdown_v2(
-			MDSanitize(Text).format(randint(0,100)),
+			CharEscape(Text, '.!').format(str(randint(0,100))+'\.'+str(randint(0,9))+str(randint(0,9))),
 			reply_to_message_id=update.message.message_id)
 
-def hug(update:Update, context:CallbackContext) -> None:
+def multijoke(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
+		Key = update.message.text.split(' ')[0][1:]
+		ReplyToMessage = update.message.message_id
 		if update.message.reply_to_message:
-			FromUser = update.message.from_user.first_name.replace('.','\.')
-			ToUser = update.message.reply_to_message.from_user.first_name.replace('.','\.')
-			Text = MDSanitize(choice(Locale[Lang]['hug']['others'])).format(FromUser,ToUser)
+			ReplyFromUID = update.message.reply_to_message.from_user.id
+			if ReplyFromUID == TGID:
+				Text = CharEscape(choice(Locale[Lang][Key]['bot']), 'MARKDOWN_SPEECH')
+			elif ReplyFromUID == update.message.from_user.id:
+				FromUName = CharEscape(update.message.from_user.first_name, 'MARKDOWN')
+				Text = CharEscape(choice(Locale[Lang][Key]['self']), 'MARKDOWN_SPEECH').format(FromUName)
+			else:
+				FromUName = CharEscape(update.message.from_user.first_name, 'MARKDOWN')
+				ToUName = CharEscape(update.message.reply_to_message.from_user.first_name, 'MARKDOWN')
+				Text = CharEscape(choice(Locale[Lang][Key]['others']), 'MARKDOWN_SPEECH').format(FromUName,ToUName)
+				ReplyToMessage = update.message.reply_to_message.message_id
 		else:
-			Text = MDSanitize(choice(Locale[Lang]['hug']['empty']))
+			Text = CharEscape(choice(Locale[Lang][Key]['empty']), 'MARKDOWN_SPEECH')
 		update.message.reply_markdown_v2(
 			Text,
-			reply_to_message_id=update.message.message_id)
+			reply_to_message_id=ReplyToMessage)
 
-def filters(update:Update, context:CallbackContext, Private) -> None:
+
+def filters(update:Update, context:CallbackContext) -> None:
 	pass
 	"""
 	if CmdRestrict(update):
@@ -81,7 +99,7 @@ def filters(update:Update, context:CallbackContext, Private) -> None:
 						reply_to_message_id=update.message.message_id)
 	"""
 
-def setfilter(update:Update, context:CallbackContext, Private) -> None:
+def setfilter(update:Update, context:CallbackContext) -> None:
 	pass
 	"""
 	if CmdRestrict(update):
@@ -129,18 +147,17 @@ def main() -> None:
 	dispatcher.add_handler(CommandHandler("echo", echo))
 	dispatcher.add_handler(CommandHandler("ping", ping))
 	dispatcher.add_handler(CommandHandler("wish", wish))
-	dispatcher.add_handler(CommandHandler("hug", hug))
-	#dispatcher.add_handler(CommandHandler("pat", pat))
-	#dispatcher.add_handler(CommandHandler("poke", poke))
-	#dispatcher.add_handler(CommandHandler("cuddle", cuddle))
+	dispatcher.add_handler(CommandHandler("hug", multijoke))
+	dispatcher.add_handler(CommandHandler("pat", multijoke))
+	dispatcher.add_handler(CommandHandler("poke", multijoke))
+	dispatcher.add_handler(CommandHandler("cuddle", multijoke))
 	#dispatcher.add_handler(CommandHandler("setfilter", setfilter))
-	dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, filters, Private))
+	dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, filters))
 
-	print('Starting bot...')
+	print('Starting WinDog...')
 	updater.start_polling()
-
 	updater.idle()
 
 if __name__ == '__main__':
 	main()
-	print('Closing...')
+	print('Closing WinDog...')

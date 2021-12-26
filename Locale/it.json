@@ -3,11 +3,11 @@
 		"Ciao {user.mention_markdown_v2()}!"
 	],
 	"help": [
-		"Non c'è nessuno qui ad aiutarti (per ora)."
+		"*Non c'è nessuno qui ad aiutarti (per ora).*"
 	],
 	"echo": {
 		"empty": [
-			"Echo cosa? Dimmi qualcosa da ripetere."
+			"*Echo cosa? Dimmi qualcosa da ripetere.*"
 		]
 	},
 	"wish": {
@@ -20,12 +20,70 @@
 	},
 	"hug": {
 		"empty": [
+			"*Chi vuoi abbracciare? Rispondi a qualcuno.*",
 			"*Un abbraccio a chi? Non hai risposto a nessuno...*"
 		],
-		"bot": [],
-		"self": [],
+		"bot": [
+			"*...Grazie uwu <3*",
+			"*Non puoi abbracciarmi ☁️ :/*"
+		],
+		"self": [
+			"*{0} allunga le braccia attorno a sè, si stringe forte, e si sente ora meno triste.*"
+		],
 		"others": [
-			"*{0} abbraccia {1} forte forte... :3*"
+			"*{0} abbraccia {1} forte forte... :3*",
+			"*{0} ti ha dato un abbraccio!*"
+		]
+	},
+	"pat": {
+		"empty": [
+			"*Chi vuoi accarezzare? Rispondi a qualcuno.*",
+			"*Una carezza a chi? Non hai risposto a nessuno...*"
+		],
+		"bot": [
+			"*Rawrrr xDDdd*",
+			"*Come vuoi accarezzarmi? Vivo nel cloud... :(*"
+		],
+		"self": [
+			"*{0} allunga goffamente la mano dietro di sè per accarezzarsi in testa 🙃*"
+		],
+		"others": [
+			"*{0} fa patpat a {1} ^.^*",
+			"*{0} ti accarezza con dolcezza.*"
+		]
+	},
+	"poke": {
+		"empty": [
+			"*Chi vuoi punzecchiare? Rispondi a qualcuno.*",
+			"*Punzecchiare chi? Non hai risposto a nessuno...*"
+		],
+		"bot": [
+			"*>_< perché?*",
+			"*heh ☁️😌*"
+		],
+		"self": [
+			"*{0} si punzecchia :o*"
+		],
+		"others": [
+			"*{0} punzecchia {1} 👀*",
+			"*{0} ti punzecchia con impertinenza 👉*"
+		]
+	},
+	"cuddle": {
+		"empty": [
+			"*A chi vuoi fare le coccole? Rispondi a qualcuno.*",
+			"*Le coccole? A chi? Non hai risposto a nessuno...*"
+		],
+		"bot": [
+			"*Aww.. grazie :3*",
+			"*Vorrei anche io le coccole ma... ☁️😔*"
+		],
+		"self": [
+			"{0} si stende sul letto e prova a farsi le coccole, per sentirsi meglio."
+		],
+		"others": [
+			"*{0} fa le coccole a {1} 🥰*",
+			"*{0} ti fa le coccole!*"
 		]
 	}
 }
