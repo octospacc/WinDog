@@ -79,7 +79,7 @@
 			"*Vorrei anche io le coccole ma... ☁️😔*"
 		],
 		"self": [
-			"{0} si stende sul letto e prova a farsi le coccole, per sentirsi meglio."
+			"*{0} si stende sul letto e prova a farsi le coccole, per sentirsi meglio.*"
 		],
 		"others": [
 			"*{0} fa le coccole a {1} 🥰*",
@@ -123,7 +123,7 @@
 	"sessocto": {
 		"empty": [
 			"*Sessocto?!?! 😳️*",
-			"Vuoi fare sessocto con qualcuno? Rispondi ad un suo messaggio.*"
+			"*Vuoi fare sessocto con qualcuno? Rispondi ad un suo messaggio.*"
 		],
 		"bot": [
 			"*Vorrei anche io sessocto ma non ho un corpo...😥️*"

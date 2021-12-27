@@ -55,13 +55,13 @@ def help(update:Update, context:CallbackContext) -> None:
 def echo(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
 		Message = update.message.text
-		if CommandFilter(Message) == 'echo':
+		if len(Message.split(' ')) < 2:
 			Text = CharEscape(choice(Locale[Lang]['echo']['empty']), '.!')
 			update.message.reply_markdown_v2(
 				Text,
 				reply_to_message_id=update.message.message_id)
 		else:
-			Text = Message[5:]
+			Text = Message[len(Message.split(' ')[0])+1:]
 			update.message.reply_text(
 				Text,
 				reply_to_message_id=update.message.message_id)
@@ -74,7 +74,7 @@ def ping(update:Update, context:CallbackContext) -> None:
 
 def wish(update:Update, context:CallbackContext) -> None:
 	if CmdRestrict(update):
-		if CommandFilter(update.message.text) == 'wish':
+		if len(update.message.text.split(' ')) < 2:
 			Text = choice(Locale[Lang]['wish']['empty'])
 		else:
 			Text = choice(Locale[Lang]['wish']['done'])
