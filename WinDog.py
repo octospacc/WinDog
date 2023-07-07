@@ -9,10 +9,17 @@ import json, hashlib, re, time, subprocess
 from os import listdir
 from random import choice, randint
 from types import SimpleNamespace
+#from traceback import format_exc as TraceText
 from telegram import Update, ForceReply, Bot
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from urllib import parse as UrlParse
+from urllib.request import urlopen, Request
 from Config import *
+
+# False: ASCII output; True: ANSI Output (must be escaped)
+ExecAllowed = {'date': False, 'fortune': False, 'neofetch': True, 'uptime': False}
+UserAgent = f'WinDog v.Staging'
 
 Db = {"Chats": {}}
 Locale = {"Fallback": {}}
@@ -85,14 +92,14 @@ def RandPercent() -> int:
 	return Num
 
 def cStart(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		user = update.effective_user
 		update.message.reply_markdown_v2(
 			CharEscape(choice(Locale.__('start')), 'MARKDOWN_SPEECH').format(user.mention_markdown_v2()),
 			reply_to_message_id=update.message.message_id)
 
 def cHelp(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		update.message.reply_markdown_v2(
 			CharEscape(choice(Locale.__('help')), 'MARKDOWN_SPEECH'),
 			reply_to_message_id=update.message.message_id)
@@ -101,7 +108,7 @@ def cConfig(update:Update, context:CallbackContext) -> None:
 	pass
 
 def cEcho(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		Msg = update.message.text
 		if len(Msg.split(' ')) >= 2:
 			Text = Msg[len(Msg.split(' ')[0])+1:]
@@ -115,13 +122,13 @@ def cEcho(update:Update, context:CallbackContext) -> None:
 				reply_to_message_id=update.message.message_id)
 
 def cPing(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		update.message.reply_markdown_v2(
 			'*Pong\!*',
 			reply_to_message_id=update.message.message_id)
 
 def percenter(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		Msg = update.message.text
 		Key = CmdFilter(Msg)
 		Toks = GetRawTokens(Msg)
@@ -135,7 +142,7 @@ def percenter(update:Update, context:CallbackContext) -> None:
 			reply_to_message_id=update.message.message_id)
 
 def multifun(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		Key = CmdFilter(update.message.text)
 		ReplyToMsg = update.message.message_id
 		if update.message.reply_to_message:
@@ -164,7 +171,7 @@ def filters(update:Update, context:CallbackContext) -> None:
 		with open('Dump.txt', 'a') as File:
 			File.write(f'[{time.ctime()}] [{int(time.time())}] [{update.message.chat.id}] [{update.message.message_id}] [{update.message.from_user.id}] {update.message.text}\n')
 	'''
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		ChatID = update.message.chat.id
 		if ChatID in Private['Chats'] and 'Filters' in Private['Chats'][ChatID]:
 			for f in Private['Chats'][ChatID]['Filters']:
@@ -177,20 +184,20 @@ def filters(update:Update, context:CallbackContext) -> None:
 def setfilter(update:Update, context:CallbackContext) -> None:
 	pass
 	'''
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		ChatID = update.message.chat.id
 		if ChatID not in Private['Chats'] or 'Filters' not in Private['Chats'][ChatID]:
 			Private['Chats'][ChatID] = {'Filters':{}}
 		Private['Chats'][ChatID]['Filters'][update.message.text] = {'Text':0}
 	'''
 
-def cTime(update:Update, context:CallbackContext) -> None:
-	update.message.reply_markdown_v2(
-		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),
-		reply_to_message_id=update.message.message_id)
+#def cTime(update:Update, context:CallbackContext) -> None:
+#	update.message.reply_markdown_v2(
+#		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),
+#		reply_to_message_id=update.message.message_id)
 
 def cHash(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		Msg = update.message.text
 		Toks = GetRawTokens(Msg)
 		if len(Toks) >= 3 and Toks[1] in hashlib.algorithms_available:
@@ -201,25 +208,49 @@ def cHash(update:Update, context:CallbackContext) -> None:
 		update.message.reply_markdown_v2(Caption, reply_to_message_id=update.message.message_id)
 
 def cEval(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		update.message.reply_markdown_v2(
 			CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
 			reply_to_message_id=update.message.message_id)
 
 def cExec(update:Update, context:CallbackContext) -> None:
-	if CmdRestrict(update):
+	if CmdAllowed(update):
 		Toks = GetRawTokens(update.message.text)
-		if len(Toks) >= 2 and Toks[1].lower() in ('date', 'neofetch', 'uptime'):
-			Caption = '```' + CharEscape(re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', subprocess.run(('sh', '-c', Toks[1].lower()), stdout=subprocess.PIPE).stdout.decode()) , 'MARKDOWN') + '```',
+		if len(Toks) >= 2 and Toks[1].lower() in ExecAllowed:
+			Cmd = Toks[1].lower()
+			Out = subprocess.run(('sh', '-c', f'export PATH=$PATH:/usr/games; {Cmd}'), stdout=subprocess.PIPE).stdout.decode()
+			# <https://stackoverflow.com/a/14693789>
+			Caption = (re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', Out)) #if ExecAllowed[Cmd] else Out)
 			update.message.reply_markdown_v2(
-				# <https://stackoverflow.com/a/14693789>
-				'```' + CharEscape( re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', subprocess.run(('sh', '-c', Toks[1].lower()), 
-				stdout=subprocess.PIPE).stdout.decode()) , 'MARKDOWN') + '```',
+				'```\n' + CharEscape(Caption, 'MARKDOWN').strip() + '\n```',
 				reply_to_message_id=update.message.message_id)
 		else:
 			update.message.reply_markdown_v2(
 				CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
 				reply_to_message_id=update.message.message_id)
+
+def cWeb(update:Update, context:CallbackContext) -> None:
+	if not CmdAllowed(update): return
+	Msg = update.message.text
+	Toks = GetRawTokens(Msg)
+	if len(Toks) >= 2:
+		try:
+			Key = CmdFilter(Msg)
+			Query = Key.join(Msg.split(Key)[1:]).strip()
+			QueryUrl = UrlParse.quote(Query)
+			Req = urlopen(Request(f'https://html.duckduckgo.com/html?q={QueryUrl}', headers={"User-Agent": UserAgent}))
+			Caption = f'[🦆🔎 "*{CharEscape(Query, "MARKDOWN")}*"](https://duckduckgo.com/?q={CharEscape(QueryUrl, "MARKDOWN")})\n\n'
+			Index = 0
+			for Line in Req.read().decode().replace('\t', ' ').splitlines():
+				if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
+					Index += 1
+					Link = CharEscape(UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0]), 'MARKDOWN')
+					Title = CharEscape(UrlParse.unquote(Line.split('</a>')[0].split('</span>')[-1].split('>')[1]), 'MARKDOWN')
+					Domain = Link.split('://')[1].split('/')[0]
+					Caption += f'{Index}\. [{Title}]({Link}) \[`{Domain}`\]\n\n'
+			update.message.reply_markdown_v2(Caption, reply_to_message_id=update.message.message_id)
+		except Exception:
+			raise
 
 #def CmdArgs(Msg:str, Cfg:tuple=None):
 #	Args = []
@@ -231,7 +262,7 @@ def cExec(update:Update, context:CallbackContext) -> None:
 #	else:
 #		return Msg.replace('  ', ' ').replace('  ', ' ').split(' ')
 
-def CmdRestrict(update) -> bool:
+def CmdAllowed(update) -> bool:
 	if not TGRestrict:
 		return True
 	else:
@@ -257,10 +288,11 @@ def Main() -> None:
 	dispatcher.add_handler(CommandHandler('help', cHelp))
 	dispatcher.add_handler(CommandHandler('echo', cEcho))
 	dispatcher.add_handler(CommandHandler('ping', cPing))
-	dispatcher.add_handler(CommandHandler('time', cTime))
+	#dispatcher.add_handler(CommandHandler('time', cTime))
 	dispatcher.add_handler(CommandHandler('hash', cHash))
 	dispatcher.add_handler(CommandHandler('eval', cEval))
 	dispatcher.add_handler(CommandHandler('exec', cExec))
+	dispatcher.add_handler(CommandHandler('web', cWeb))
 	dispatcher.add_handler(CommandHandler('unsplash', cUnsplash))
 
 	for Cmd in ('wish', 'level'):
