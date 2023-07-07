@@ -1,6 +1,6 @@
 {
 	"start": [
-		"Ciao {user.mention_markdown_v2()}!"
+		"*Ciao* {0}*!*"
 	],
 	"help": [
 		"*Non c'è nessuno qui ad aiutarti (per ora).*"
@@ -15,7 +15,15 @@
 			"*Non hai desiderato nulla! ✨*\n\n_Non succede niente..._"
 		],
 		"done": [
-			"*Il tuo desiderio è stato espresso! ✨*\n\n_Probabilità che si avveri: {0}%_"
+			"*Il tuo desiderio è stato espresso! ✨*\n\n_Probabilità che si avveri: *{Percent}%*._"
+		]
+	},
+	"level": {
+		"empty": [
+			"Controlla il tuo livello di qualcosa.\n\n*Uso*: {Cmd} <Cosa>."
+		],
+		"done": [
+			"_Il tuo livello di *{Thing}* è... *{Percent}%*._"
 		]
 	},
 	"hug": {

@@ -1,13 +1,13 @@
 {
 	"start": [
-		"Hi {user.mention_markdown_v2()}!"
+		"*Hi* {user.mention_markdown_v2()}*!*"
 	],
 	"help": [
-		"There's no one around to help (yet)."
+		"*There's no one around to help (yet).*"
 	],
 	"echo": {
 		"empty": [
-			"Echo what? Give me something to repeat."
+			"*Echo what? Give me something to repeat.*"
 		]
 	},
 	"wish": {
@@ -15,7 +15,7 @@
 			"*You wished for nothing! ✨*\n\n_Nothing happens..._"
 		],
 		"done": [
-			"*Your wish has been cast! ✨*\n\n_Chance of success: {0}%_"
+			"*Your wish has been cast! ✨*\n\n_Chance of success: *{Percent}%*._"
 		]
 	},
 	"hug": {
@@ -27,5 +27,22 @@
 		"others": [
 			"*{0} hugs {1} tightly... :3*"
 		]
-	}
+	},
+	"level": {
+		"empty": [
+			"Check what's your level of something.\n\n*Usage*: {Cmd} <Thing>."
+		],
+		"done": [
+			"_Your level of *{Thing}* is... *{Percent}%*._"
+		]
+	},
+	"hash": [
+		"*Usage*: {0} <Algorithm> <Text to Hash>.\n\n*Available algorithms*: {1}."
+	],
+	"eval": [
+		"This feature is not implemented [Security Issue]."
+	],
+	"time": [
+		"Local time: *{0}*."
+	]
 }

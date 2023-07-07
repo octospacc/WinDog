@@ -1,0 +1,7 @@
+#!/bin/bash
+
+ScriptPath=$(realpath $0)
+ScriptDir=$(dirname $ScriptPath)
+cd $ScriptDir
+
+python3 WinDog.py
