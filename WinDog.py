@@ -67,7 +67,7 @@ def SetupDb() -> None:
 	except Exception:
 		pass
 
-def CharEscape(String, Escape='') -> str:
+def CharEscape(String:str, Escape:str='') -> str:
 	if Escape == 'MARKDOWN':
 		return escape_markdown(String, version=2)
 	else:
@@ -78,6 +78,9 @@ def CharEscape(String, Escape='') -> str:
 		for c in Escape:
 			String = String.replace(c, '\\'+c)
 	return String
+
+def MarkdownCode(Text:str, Block:bool):
+	return '```\n' + CharEscape(Text.strip(), 'MARKDOWN') + '\n```'
 
 def CmdAllowed(update) -> bool:
 	if not TGRestrict:
@@ -139,6 +142,12 @@ def RandPercent() -> int:
 	else:
 		Num = str(Num) + '\.' + str(randint(0,9)) + str(randint(0,9))
 	return Num
+
+def RandHexStr(Len:int) -> str:
+	Hex = ''
+	for Char in range(Len):
+		Hex += choice('0123456789abcdef')
+	return Hex
 
 #def CmdArgs(Msg:str, Cfg:tuple=None):
 #	Args = []

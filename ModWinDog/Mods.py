@@ -109,9 +109,7 @@ def cExec(update:Update, context:CallbackContext) -> None:
 		Out = subprocess.run(('sh', '-c', f'export PATH=$PATH:/usr/games; {Cmd}'), stdout=subprocess.PIPE).stdout.decode()
 		# <https://stackoverflow.com/a/14693789>
 		Caption = (re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', Out)) #if ExecAllowed[Cmd] else Out)
-		update.message.reply_markdown_v2(
-			'```\n' + CharEscape(Caption, 'MARKDOWN').strip() + '\n```',
-			reply_to_message_id=update.message.message_id)
+		update.message.reply_markdown_v2(MarkdownCode(Caption, True), reply_to_message_id=update.message.message_id)
 	else:
 		update.message.reply_markdown_v2(
 			CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
@@ -145,8 +143,11 @@ def cUnsplash(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
 	try:
+		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Cmd.Body)}')
 		update.message.reply_photo(
-			HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Cmd.Body)}').read(),
+			Req.read(),
+			caption=MarkdownCode(Req.geturl().split('?')[0], True),
+			parse_mode='MarkdownV2',
 			reply_to_message_id=update.message.message_id)
 	except Exception:
 		raise
@@ -154,3 +155,32 @@ def cUnsplash(update:Update, context:CallbackContext) -> None:
 def cSafebooru(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
+	ApiUrl = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
+	try:
+		if Cmd.Body:
+			for i in range(7):
+				ImgUrls = HttpGet(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(Cmd.Body)}').read().decode().split(' file_url="')[1:]
+				if ImgUrls:
+					break
+			if not ImgUrls:
+				ImgUrls = HttpGet(f'{ApiUrl}{UrlParse.quote(Cmd.Body)}').read().decode().split(' file_url="')[1:]
+			ImgXml = choice(ImgUrls)
+			ImgUrl = ImgXml.split('"')[0]
+			ImgId = ImgXml.split(' id="')[1].split('"')[0]
+		else:
+			HtmlReq = HttpGet(HttpGet('https://safebooru.org/index.php?page=post&s=random').geturl())
+			for Line in HtmlReq.read().decode().replace('\t', ' ').splitlines():
+				if '<img ' in Line and ' id="image" ' in Line and ' src="':
+					ImgUrl = Line.split(' src="')[1].split('"')[0]
+					ImgId = ImgUrl.split('?')[-1]
+					break
+		if ImgUrl:
+			update.message.reply_photo(
+				HttpGet(ImgUrl).read(),
+				caption=f'`{ImgId}`\n' + MarkdownCode(ImgUrl, True),
+				parse_mode='MarkdownV2',
+				reply_to_message_id=update.message.message_id)
+		else:
+			pass
+	except Exception:
+		raise
