@@ -1,6 +1,6 @@
 {
 	"start": [
-		"*Hi* {user.mention_markdown_v2()}*!*"
+		"*Hi* {0}*!*"
 	],
 	"help": [
 		"*There's no one around to help (yet).*"
