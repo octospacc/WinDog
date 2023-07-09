@@ -37,13 +37,17 @@ def multifun(update:Update, context:CallbackContext) -> None:
 			Text = CharEscape(choice(Locale.__(f'{Key}.empty')), 'MARKDOWN_SPEECH')
 	update.message.reply_markdown_v2(Text, reply_to_message_id=ReplyToMsg)
 
-def cStart(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	user = update.effective_user
-	update.message.reply_markdown_v2('Hi\!',
-		#CharEscape(choice(Locale.__('start')).format(CharEscape(user.mention_markdown_v2(), 'MARKDOWN')), 'MARKDOWN'),
-		reply_to_message_id=update.message.message_id)
+def cStart(Context, Data=None) -> None:
+	SendMsg(Context, {"Text": "Hi stupid :3"})
+
+#def cStart(update:Update, context:CallbackContext) -> None:
+#	Cmd = HandleCmd(update)
+#	if not Cmd: return
+#	user = update.effective_user
+#	update.message.reply_markdown_v2(#'Hi\!',
+#		#CharEscape(choice(Locale.__('start')).format(CharEscape(user.mention_markdown_v2(), 'MARKDOWN')), 'MARKDOWN'),
+#		CharEscape(choice(Locale.__('start')), '.!').format(user.mention_markdown_v2()),
+#		reply_to_message_id=update.message.message_id)
 
 def cHelp(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
@@ -52,11 +56,24 @@ def cHelp(update:Update, context:CallbackContext) -> None:
 		CharEscape(choice(Locale.__('help')), 'MARKDOWN_SPEECH'),
 		reply_to_message_id=update.message.message_id)
 
-def cConfig(update:Update, context:CallbackContext) -> None:
+def cSource(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
 
-def cEcho(update:Update, context:CallbackContext) -> None:
+def cConfig(update:Update, context:CallbackContext) -> None:
+	Cmd = HandleCmd(update)
+	if not Cmd: return
+	# ... area: eu, us, ...
+	# ... language: en, it, ...
+	# ... userdata: import, export, delete
+
+def cEcho(Context, Data=None) -> None:
+	if Data.Body:
+		SendMsg(Context, {"Text": Data.Body})
+	else:
+		SendMsg(Context, {"Text": choice(Locale.__('echo.empty'))})
+
+def cEcho2(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
 	Msg = update.message.text

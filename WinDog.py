@@ -10,6 +10,8 @@ from os.path import isfile
 from random import choice, randint
 from types import SimpleNamespace
 #from traceback import format_exc as TraceText
+import mastodon, telegram
+from bs4 import BeautifulSoup
 from telegram import Update, ForceReply, Bot
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
@@ -25,6 +27,11 @@ for Dir in ('Lib', 'Mod'):
 		if isfile(File):
 			with open(File, 'r') as File:
 				exec(File.read())
+
+Endpoints = {
+	"start": cStart,
+	"echo": cEcho,
+}
 
 def SetupLocale() -> None:
 	global Locale
@@ -111,7 +118,8 @@ def ParseCmd(Msg) -> dict:
 
 def filters(update:Update, context:CallbackContext=None) -> None:
 	if Debug and Dumper:
-		Text = update.message.text.replace('\n', '\\n')
+		Text = update.message.text
+		Text = (Text.replace('\n', '\\n') if Text else '')
 		with open('Dump.txt', 'a') as File:
 			File.write(f'[{time.ctime()}] [{int(time.time())}] [{update.message.chat.id}] [{update.message.message_id}] [{update.message.from_user.id}] {Text}\n')
 	'''
@@ -162,8 +170,24 @@ def RandHexStr(Len:int) -> str:
 def HttpGet(Url:str):
 	return urlopen(Request(Url, headers={"User-Agent": WebUserAgent}))
 
-#def SendMsg(Data, context):
-#	pass
+def SendMsg(Context, Data):
+	#Data: Text, Media, Files
+	if type(Context) == dict:
+		Event = Context['Event'] if 'Event' in Context else None
+		Manager = Context['Manager'] if 'Manager' in Context else None
+	else:
+		[Event, Manager] = [Context, Context]
+	if isinstance(Manager, mastodon.Mastodon):
+		Manager.status_post(
+			(Data['Text'] + '\n\n@' + Event['account']['acct']),
+			in_reply_to_id=Event['status']['id'],
+			visibility=('direct' if Event['status']['visibility'] == 'direct' else 'unlisted')
+		)
+	elif isinstance(Manager, telegram.Update):
+		Event.message.reply_markdown_v2(
+			Data['Text'],
+			reply_to_message_id=Event.message.message_id
+		)
 
 def Main() -> None:
 	SetupDb()
@@ -177,7 +201,8 @@ def Main() -> None:
 	dispatcher.add_handler(CommandHandler('start', cStart))
 	dispatcher.add_handler(CommandHandler('config', cConfig))
 	dispatcher.add_handler(CommandHandler('help', cHelp))
-	dispatcher.add_handler(CommandHandler('echo', cEcho))
+	dispatcher.add_handler(CommandHandler('source', cSource))
+	dispatcher.add_handler(CommandHandler('echo', cEcho2))
 	dispatcher.add_handler(CommandHandler('ping', cPing))
 	#dispatcher.add_handler(CommandHandler('time', cTime))
 	dispatcher.add_handler(CommandHandler('hash', cHash))
@@ -197,7 +222,24 @@ def Main() -> None:
 
 	print('Starting WinDog...')
 	updater.start_polling()
-	updater.idle()
+
+	#if MastodonUrl and MastodonToken:
+	Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
+	class mmyListener(mastodon.StreamListener):
+		def on_notification(self, Event):
+			if Event['type'] == 'mention':
+				Msg = BeautifulSoup(Event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
+				if not Msg.split('@')[0]:
+					Msg = ' '.join('@'.join(Msg.split('@')[1:]).strip().split(' ')[1:]).strip()
+				if Msg[0] in '.!/':
+					Cmd = ParseCmd(Msg)
+					if Cmd.Name in Endpoints:
+						Endpoints[Cmd.Name]({"Event": Event, "Manager": Mastodon}, Cmd)
+					
+	Mastodon.stream_user(mmyListener())
+
+	while True:
+		time.sleep(9**9)
 
 if __name__ == '__main__':
 	try:

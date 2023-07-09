@@ -1,2 +1,9 @@
+# Some bot modules
 urllib3
+
+# Mastodon support
+Mastodon.py
+beautifulsoup4
+
+# Telegram support
 python-telegram-bot
