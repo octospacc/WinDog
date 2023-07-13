@@ -20,7 +20,7 @@
 	},
 	"level": {
 		"empty": [
-			"Controlla il tuo livello di qualcosa.\n\n*Uso*: {Cmd} <Cosa>."
+			"Controlla il tuo livello di qualcosa.\n\n*Uso*: {Cmd} &lt;Cosa&gt;."
 		],
 		"done": [
 			"_Il tuo livello di *{Thing}* è... *{Percent}%*._"

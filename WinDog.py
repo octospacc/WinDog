@@ -12,11 +12,16 @@ from types import SimpleNamespace
 #from traceback import format_exc as TraceText
 import mastodon, telegram
 from bs4 import BeautifulSoup
+from html import unescape as HtmlUnescape
+from markdown import markdown
 from telegram import Update, ForceReply, Bot
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 from urllib import parse as UrlParse
 from urllib.request import urlopen, Request
+
+# <https://daringfireball.net/projects/markdown/syntax#backslash>
+MdEscapes = '\\`*_{}[]()<>#+-.!'
 
 Db = {"Chats": {}}
 Locale = {"Fallback": {}}
@@ -30,7 +35,26 @@ for Dir in ('Lib', 'Mod'):
 
 Endpoints = {
 	"start": cStart,
+	#"help": cHelp,
+	#"config": cConfig,
+	#"source": cSource,
+	"ping": cPing,
 	"echo": cEcho,
+	"wish": percenter,
+	"level": percenter,
+	#"hug": multifun,
+	#"pat": multifun,
+	#"poke": multifun,
+	#"cuddle": multifun,
+	#"floor": multifun,
+	#"hands": multifun,
+	#"sessocto": multifun,
+	#"hash": cHash,
+	#"eval": cEval,
+	#"exec": cExec,
+	#"web": cWeb,
+	#"unsplash": cUnsplash,
+	#"safebooru": cSafebooru,
 }
 
 def SetupLocale() -> None:
@@ -86,8 +110,18 @@ def CharEscape(String:str, Escape:str='') -> str:
 			String = String.replace(c, '\\'+c)
 	return String
 
-def MarkdownCode(Text:str, Block:bool):
+def InferMdEscape(Raw:str, Plain:str) -> str:
+	Chs = ''
+	for Ch in MdEscapes:
+		if Ch in Raw and Ch in Plain:
+			Chs += Ch
+	return Chs
+
+def MarkdownCode(Text:str, Block:bool) -> str:
 	return '```\n' + CharEscape(Text.strip(), 'MARKDOWN') + '\n```'
+
+def MdToTxt(Md:str) -> str:
+	return BeautifulSoup(markdown(Md), 'html.parser').get_text(' ')
 
 def CmdAllowed(update) -> bool:
 	if not TGRestrict:
@@ -114,9 +148,14 @@ def ParseCmd(Msg) -> dict:
 		"Name": Name,
 		"Body": Name.join(Msg.split(Name)[1:]).strip(),
 		"Tokens": GetRawTokens(Msg),
+		"User": {"Name": "", "Tag": "", "Id": ""},
+		"Tagged": {},
 	})
 
 def filters(update:Update, context:CallbackContext=None) -> None:
+	Cmd = ParseCmd(update.message.text)
+	if Cmd.Tokens[0][0] in CmdPrefixes and Cmd.Name in Endpoints:
+		Endpoints[Cmd.Name](update, Cmd)
 	if Debug and Dumper:
 		Text = update.message.text
 		Text = (Text.replace('\n', '\\n') if Text else '')
@@ -146,9 +185,9 @@ def setfilter(update:Update, context:CallbackContext) -> None:
 def RandPercent() -> int:
 	Num = randint(0,100)
 	if Num == 100:
-		Num = str(Num) + '\.00'
+		Num = f'{Num}.00'
 	else:
-		Num = str(Num) + '\.' + str(randint(0,9)) + str(randint(0,9))
+		Num = f'{Num}.{randint(0,9)}{randint(0,9)}'
 	return Num
 
 def RandHexStr(Len:int) -> str:
@@ -177,15 +216,18 @@ def SendMsg(Context, Data):
 		Manager = Context['Manager'] if 'Manager' in Context else None
 	else:
 		[Event, Manager] = [Context, Context]
+	TextPlain = MdToTxt(Data['Text'])
 	if isinstance(Manager, mastodon.Mastodon):
 		Manager.status_post(
-			(Data['Text'] + '\n\n@' + Event['account']['acct']),
+			(TextPlain + '\n\n@' + Event['account']['acct']),
 			in_reply_to_id=Event['status']['id'],
 			visibility=('direct' if Event['status']['visibility'] == 'direct' else 'unlisted')
 		)
 	elif isinstance(Manager, telegram.Update):
 		Event.message.reply_markdown_v2(
-			Data['Text'],
+			CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain)),
+		#Event.message.reply_text(
+			#TextPlain,
 			reply_to_message_id=Event.message.message_id
 		)
 
@@ -198,12 +240,10 @@ def Main() -> None:
 	updater = Updater(TGToken)
 	dispatcher = updater.dispatcher
 
-	dispatcher.add_handler(CommandHandler('start', cStart))
+	#dispatcher.add_handler(CommandHandler('start', cStart))
 	dispatcher.add_handler(CommandHandler('config', cConfig))
 	dispatcher.add_handler(CommandHandler('help', cHelp))
 	dispatcher.add_handler(CommandHandler('source', cSource))
-	dispatcher.add_handler(CommandHandler('echo', cEcho2))
-	dispatcher.add_handler(CommandHandler('ping', cPing))
 	#dispatcher.add_handler(CommandHandler('time', cTime))
 	dispatcher.add_handler(CommandHandler('hash', cHash))
 	dispatcher.add_handler(CommandHandler('eval', cEval))
@@ -212,31 +252,28 @@ def Main() -> None:
 	dispatcher.add_handler(CommandHandler('unsplash', cUnsplash))
 	dispatcher.add_handler(CommandHandler('safebooru', cSafebooru))
 
-	for Cmd in ('wish', 'level'):
-		dispatcher.add_handler(CommandHandler(Cmd, percenter))
 	for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):
 		dispatcher.add_handler(CommandHandler(Cmd, multifun))
 
 	#dispatcher.add_handler(CommandHandler('setfilter', setfilter))
-	dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, filters))
+	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, filters))
 
 	print('Starting WinDog...')
 	updater.start_polling()
 
-	#if MastodonUrl and MastodonToken:
-	Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
-	class mmyListener(mastodon.StreamListener):
-		def on_notification(self, Event):
-			if Event['type'] == 'mention':
-				Msg = BeautifulSoup(Event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
-				if not Msg.split('@')[0]:
-					Msg = ' '.join('@'.join(Msg.split('@')[1:]).strip().split(' ')[1:]).strip()
-				if Msg[0] in '.!/':
-					Cmd = ParseCmd(Msg)
-					if Cmd.Name in Endpoints:
-						Endpoints[Cmd.Name]({"Event": Event, "Manager": Mastodon}, Cmd)
-					
-	Mastodon.stream_user(mmyListener())
+	if MastodonUrl and MastodonToken:
+		Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
+		class MastodonListener(mastodon.StreamListener):
+			def on_notification(self, Event):
+				if Event['type'] == 'mention':
+					Msg = BeautifulSoup(Event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
+					if not Msg.split('@')[0]:
+						Msg = ' '.join('@'.join(Msg.split('@')[1:]).strip().split(' ')[1:]).strip()
+					if Msg[0] in CmdPrefixes:
+						Cmd = ParseCmd(Msg)
+						if Cmd.Name in Endpoints:
+							Endpoints[Cmd.Name]({"Event": Event, "Manager": Mastodon}, Cmd)
+		Mastodon.stream_user(MastodonListener())
 
 	while True:
 		time.sleep(9**9)

@@ -30,7 +30,7 @@
 	},
 	"level": {
 		"empty": [
-			"Check what's your level of something.\n\n*Usage*: {Cmd} <Thing>."
+			"Check what's your level of something.\n\n*Usage*: {Cmd} &lt;Thing&gt;."
 		],
 		"done": [
 			"_Your level of *{Thing}* is... *{Percent}%*._"

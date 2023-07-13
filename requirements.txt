@@ -1,9 +1,13 @@
-# Some bot modules
+# Program core
+# ...
+
+# Required by some bot modules
 urllib3
 
 # Mastodon support
 Mastodon.py
 beautifulsoup4
+Markdown
 
 # Telegram support
 python-telegram-bot

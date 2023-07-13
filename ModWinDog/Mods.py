@@ -3,16 +3,12 @@
 # Licensed under AGPLv3 by OctoSpacc #
 # ================================== #
 
-def percenter(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	if len(Cmd.Tokens) >= 2:
-		Text = choice(Locale.__(f'{Cmd.Name}.done'))
+def percenter(Context, Data=None) -> None:
+	if Data.Body:
+		Text = choice(Locale.__(f'{Data.Name}.done'))
 	else:
-		Text = choice(Locale.__(f'{Cmd.Name}.empty'))
-	update.message.reply_markdown_v2(
-		CharEscape(Text, '.!<>').format(Cmd=Cmd.Tokens[0], Percent=RandPercent(), Thing=Cmd.Body),
-		reply_to_message_id=update.message.message_id)
+		Text = choice(Locale.__(f'{Data.Name}.empty'))
+	SendMsg(Context, {"Text": Text.format(Cmd=Data.Tokens[0], Percent=RandPercent(), Thing=Data.Body)})
 
 def multifun(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
@@ -38,7 +34,7 @@ def multifun(update:Update, context:CallbackContext) -> None:
 	update.message.reply_markdown_v2(Text, reply_to_message_id=ReplyToMsg)
 
 def cStart(Context, Data=None) -> None:
-	SendMsg(Context, {"Text": "Hi stupid :3"})
+	SendMsg(Context, {"Text": choice(Locale.__('start')).format('stupid')})
 
 #def cStart(update:Update, context:CallbackContext) -> None:
 #	Cmd = HandleCmd(update)
@@ -67,33 +63,14 @@ def cConfig(update:Update, context:CallbackContext) -> None:
 	# ... language: en, it, ...
 	# ... userdata: import, export, delete
 
+def cPing(Context, Data=None) -> None:
+	SendMsg(Context, {"Text": "*Pong!*"})
+
 def cEcho(Context, Data=None) -> None:
 	if Data.Body:
 		SendMsg(Context, {"Text": Data.Body})
 	else:
 		SendMsg(Context, {"Text": choice(Locale.__('echo.empty'))})
-
-def cEcho2(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	Msg = update.message.text
-	if len(Msg.split(' ')) >= 2:
-		Text = Msg[len(Msg.split(' ')[0])+1:]
-		update.message.reply_text(
-			Text,
-			reply_to_message_id=update.message.message_id)
-	else:
-		Text = CharEscape(choice(Locale.__('echo.empty')), '.!')
-		update.message.reply_markdown_v2(
-			Text,
-			reply_to_message_id=update.message.message_id)
-
-def cPing(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	update.message.reply_markdown_v2(
-		'*Pong\!*',
-		reply_to_message_id=update.message.message_id)
 
 #def cTime(update:Update, context:CallbackContext) -> None:
 #	update.message.reply_markdown_v2(
