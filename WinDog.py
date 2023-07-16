@@ -21,7 +21,7 @@ from urllib import parse as UrlParse
 from urllib.request import urlopen, Request
 
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
-MdEscapes = '\\`*_{}[]()<>#+-.!'
+MdEscapes = '\\`*_{}[]()<>#=+-.!|'
 
 Db = {"Chats": {}}
 Locale = {"Fallback": {}}
@@ -49,12 +49,12 @@ Endpoints = {
 	#"floor": multifun,
 	#"hands": multifun,
 	#"sessocto": multifun,
-	#"hash": cHash,
+	"hash": cHash,
 	#"eval": cEval,
 	#"exec": cExec,
-	#"web": cWeb,
-	#"unsplash": cUnsplash,
-	#"safebooru": cSafebooru,
+	"web": cWeb,
+	"unsplash": cUnsplash,
+	"safebooru": cSafebooru,
 }
 
 def SetupLocale() -> None:
@@ -97,6 +97,12 @@ def SetupDb() -> None:
 			Db = json.load(File)
 	except Exception:
 		pass
+
+def InDict(Dict:dict, Key:str):
+	if Key in Dict:
+		return Dict[Key]
+	else:
+		return None
 
 def CharEscape(String:str, Escape:str='') -> str:
 	if Escape == 'MARKDOWN':
@@ -216,20 +222,34 @@ def SendMsg(Context, Data):
 		Manager = Context['Manager'] if 'Manager' in Context else None
 	else:
 		[Event, Manager] = [Context, Context]
-	TextPlain = MdToTxt(Data['Text'])
+	if InDict(Data, 'Text'):
+		TextPlain = MdToTxt(Data['Text'])
+		TextMarkdown = CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain))
 	if isinstance(Manager, mastodon.Mastodon):
-		Manager.status_post(
-			(TextPlain + '\n\n@' + Event['account']['acct']),
-			in_reply_to_id=Event['status']['id'],
-			visibility=('direct' if Event['status']['visibility'] == 'direct' else 'unlisted')
-		)
+		if InDict(Data, 'Media'):
+			Media = Manager.media_post(Data['Media'])
+			while Media['url'] == 'null':
+				Media = Manager.media(Media)
+		if InDict(Data, 'Text'):
+			Manager.status_post(
+				status=(TextPlain + '\n\n@' + Event['account']['acct']),
+				media_ids=(Media if Data['Media'] else None),
+				in_reply_to_id=Event['status']['id'],
+				visibility=('direct' if Event['status']['visibility'] == 'direct' else 'unlisted'),
+			)
 	elif isinstance(Manager, telegram.Update):
-		Event.message.reply_markdown_v2(
-			CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain)),
-		#Event.message.reply_text(
-			#TextPlain,
-			reply_to_message_id=Event.message.message_id
-		)
+		if InDict(Data, 'Media'):
+			Event.message.reply_photo(
+				Data['Media'],
+				caption=(TextMarkdown if Data['Text'] else None),
+				parse_mode='MarkdownV2',
+				reply_to_message_id=Event.message.message_id,
+			)
+		elif InDict(Data, 'Text'):
+			Event.message.reply_markdown_v2(
+				TextMarkdown,
+				reply_to_message_id=Event.message.message_id,
+			)
 
 def Main() -> None:
 	SetupDb()
@@ -245,12 +265,9 @@ def Main() -> None:
 	dispatcher.add_handler(CommandHandler('help', cHelp))
 	dispatcher.add_handler(CommandHandler('source', cSource))
 	#dispatcher.add_handler(CommandHandler('time', cTime))
-	dispatcher.add_handler(CommandHandler('hash', cHash))
 	dispatcher.add_handler(CommandHandler('eval', cEval))
 	dispatcher.add_handler(CommandHandler('exec', cExec))
-	dispatcher.add_handler(CommandHandler('web', cWeb))
-	dispatcher.add_handler(CommandHandler('unsplash', cUnsplash))
-	dispatcher.add_handler(CommandHandler('safebooru', cSafebooru))
+	#dispatcher.add_handler(CommandHandler('web', cWeb))
 
 	for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):
 		dispatcher.add_handler(CommandHandler(Cmd, multifun))

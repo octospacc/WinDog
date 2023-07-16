@@ -77,15 +77,12 @@ def cEcho(Context, Data=None) -> None:
 #		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),
 #		reply_to_message_id=update.message.message_id)
 
-def cHash(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	if len(Cmd.Tokens) >= 3 and Cmd.Tokens[1] in hashlib.algorithms_available:
-		Alg = Cmd.Tokens[1]
-		Caption = hashlib.new(Alg, Alg.join(Cmd.Body.split(Alg)[1:]).strip().encode()).hexdigest()
+def cHash(Context, Data=None) -> None:
+	if len(Data.Tokens) >= 3 and Data.Tokens[1] in hashlib.algorithms_available:
+		Alg = Data.Tokens[1]
+		SendMsg(Context, {"Text": hashlib.new(Alg, Alg.join(Data.Body.split(Alg)[1:]).strip().encode()).hexdigest()})
 	else:
-		Caption = CharEscape(choice(Locale.__('hash')).format(Cmd.Tokens[0], hashlib.algorithms_available), 'MARKDOWN_SPEECH')
-	update.message.reply_markdown_v2(Caption, reply_to_message_id=update.message.message_id)
+		SendMsg(Context, {"Text": choice(Locale.__('hash.usage')).format(Data.Tokens[0], hashlib.algorithms_available)})
 
 def cEval(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
@@ -109,55 +106,45 @@ def cExec(update:Update, context:CallbackContext) -> None:
 			CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
 			reply_to_message_id=update.message.message_id)
 
-def cWeb(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	Msg = update.message.text
-	Toks = Cmd.Tokens
-	if len(Cmd.Tokens) >= 2:
+def cWeb(Context, Data=None) -> None:
+	if Data.Body:
 		try:
-			Key = ParseCmd(Msg).Name
-			Query = Key.join(Msg.split(Key)[1:]).strip()
-			QueryUrl = UrlParse.quote(Query)
+			QueryUrl = UrlParse.quote(Data.Body)
 			Req = HttpGet(f'https://html.duckduckgo.com/html?q={QueryUrl}')
-			Caption = f'[🦆🔎 "*{CharEscape(Query, "MARKDOWN")}*"](https://duckduckgo.com/?q={CharEscape(QueryUrl, "MARKDOWN")})\n\n'
+			#Caption = f'[🦆🔎 "*{CharEscape(Data.Body, "MARKDOWN")}*"](https://duckduckgo.com/?q={CharEscape(QueryUrl, "MARKDOWN")})\n\n'
+			Caption = '[🦆🔎 "*{Data.Body}*"](https://duckduckgo.com/?q={QueryUrl})\n\n'
 			Index = 0
 			for Line in Req.read().decode().replace('\t', ' ').splitlines():
 				if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
 					Index += 1
-					Link = CharEscape(UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0]), 'MARKDOWN')
-					Title = CharEscape(UrlParse.unquote(Line.split('</a>')[0].split('</span>')[-1].split('>')[1]), 'MARKDOWN')
+					#Link = CharEscape(UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0]), 'MARKDOWN')
+					#Title = CharEscape(UrlParse.unquote(Line.split('</a>')[0].split('</span>')[-1].split('>')[1]), 'MARKDOWN')
+					Link = UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
+					Title = UrlParse.unquote(Line.split('</a>')[0].split('</span>')[-1].split('>')[1])
 					Domain = Link.split('://')[1].split('/')[0]
-					Caption += f'{Index}\. [{Title}]({Link}) \[`{Domain}`\]\n\n'
-			update.message.reply_markdown_v2(Caption, reply_to_message_id=update.message.message_id)
+					#Caption += f'{Index}\. [{Title}]({Link}) \[`{Domain}`\]\n\n'
+					Caption += f'{Index}. [{Title}]({Link}) [`{Domain}`]\n\n'
+			SendMsg(Context, {"Text": Caption})
 		except Exception:
 			raise
 
-def cUnsplash(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
+def cUnsplash(Context, Data=None) -> None:
 	try:
-		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Cmd.Body)}')
-		update.message.reply_photo(
-			Req.read(),
-			caption=MarkdownCode(Req.geturl().split('?')[0], True),
-			parse_mode='MarkdownV2',
-			reply_to_message_id=update.message.message_id)
+		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Data.Body)}')
+		SendMsg(Context, {"Text": MarkdownCode(Req.geturl().split('?')[0], True), "Media": Req.read()})
 	except Exception:
 		raise
 
-def cSafebooru(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
+def cSafebooru(Context, Data=None) -> None:
 	ApiUrl = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
 	try:
-		if Cmd.Body:
+		if Data.Body:
 			for i in range(7):
-				ImgUrls = HttpGet(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(Cmd.Body)}').read().decode().split(' file_url="')[1:]
+				ImgUrls = HttpGet(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(Data.Body)}').read().decode().split(' file_url="')[1:]
 				if ImgUrls:
 					break
 			if not ImgUrls:
-				ImgUrls = HttpGet(f'{ApiUrl}{UrlParse.quote(Cmd.Body)}').read().decode().split(' file_url="')[1:]
+				ImgUrls = HttpGet(f'{ApiUrl}{UrlParse.quote(Data.Body)}').read().decode().split(' file_url="')[1:]
 			ImgXml = choice(ImgUrls)
 			ImgUrl = ImgXml.split('"')[0]
 			ImgId = ImgXml.split(' id="')[1].split('"')[0]
@@ -169,11 +156,7 @@ def cSafebooru(update:Update, context:CallbackContext) -> None:
 					ImgId = ImgUrl.split('?')[-1]
 					break
 		if ImgUrl:
-			update.message.reply_photo(
-				HttpGet(ImgUrl).read(),
-				caption=f'`{ImgId}`\n' + MarkdownCode(ImgUrl, True),
-				parse_mode='MarkdownV2',
-				reply_to_message_id=update.message.message_id)
+			SendMsg(Context, {"Text": (f'`{ImgId}`\n' + MarkdownCode(ImgUrl, True)), "Media": HttpGet(ImgUrl).read()})
 		else:
 			pass
 	except Exception:

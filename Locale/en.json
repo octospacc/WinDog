@@ -36,9 +36,11 @@
 			"_Your level of *{Thing}* is... *{Percent}%*._"
 		]
 	},
-	"hash": [
-		"*Usage*: {0} <Algorithm> <Text to Hash>.\n\n*Available algorithms*: {1}."
-	],
+	"hash": {
+		"usage": [
+			"*Usage*: {0} &lt;Algorithm&gt; &lt;Text to Hash&gt;.\n\n*Available algorithms*: {1}."
+		]
+	},
 	"eval": [
 		"This feature is not implemented [Security Issue]."
 	],
