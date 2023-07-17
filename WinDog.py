@@ -5,6 +5,7 @@
 # ================================== #
 
 import json, hashlib, re, time, subprocess
+from magic import Magic
 from os import listdir
 from os.path import isfile
 from random import choice, randint
@@ -21,7 +22,7 @@ from urllib import parse as UrlParse
 from urllib.request import urlopen, Request
 
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
-MdEscapes = '\\`*_{}[]()<>#=+-.!|'
+MdEscapes = '\\`*_{}[]()<>#+-.!|='
 
 Db = {"Chats": {}}
 Locale = {"Fallback": {}}
@@ -53,6 +54,7 @@ Endpoints = {
 	#"eval": cEval,
 	#"exec": cExec,
 	"web": cWeb,
+	"translate": cTranslate,
 	"unsplash": cUnsplash,
 	"safebooru": cSafebooru,
 }
@@ -124,7 +126,7 @@ def InferMdEscape(Raw:str, Plain:str) -> str:
 	return Chs
 
 def MarkdownCode(Text:str, Block:bool) -> str:
-	return '```\n' + CharEscape(Text.strip(), 'MARKDOWN') + '\n```'
+	return '```\n' + Text.strip().replace('`', '\`') + '\n```'
 
 def MdToTxt(Md:str) -> str:
 	return BeautifulSoup(markdown(Md), 'html.parser').get_text(' ')
@@ -227,13 +229,13 @@ def SendMsg(Context, Data):
 		TextMarkdown = CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain))
 	if isinstance(Manager, mastodon.Mastodon):
 		if InDict(Data, 'Media'):
-			Media = Manager.media_post(Data['Media'])
+			Media = Manager.media_post(Data['Media'], Magic(mime=True).from_buffer(Data['Media']))
 			while Media['url'] == 'null':
 				Media = Manager.media(Media)
 		if InDict(Data, 'Text'):
 			Manager.status_post(
 				status=(TextPlain + '\n\n@' + Event['account']['acct']),
-				media_ids=(Media if Data['Media'] else None),
+				media_ids=(Media if InDict(Data, 'Media') else None),
 				in_reply_to_id=Event['status']['id'],
 				visibility=('direct' if Event['status']['visibility'] == 'direct' else 'unlisted'),
 			)
@@ -241,7 +243,7 @@ def SendMsg(Context, Data):
 		if InDict(Data, 'Media'):
 			Event.message.reply_photo(
 				Data['Media'],
-				caption=(TextMarkdown if Data['Text'] else None),
+				caption=(TextMarkdown if InDict(Data, 'Text') else None),
 				parse_mode='MarkdownV2',
 				reply_to_message_id=Event.message.message_id,
 			)
@@ -267,7 +269,6 @@ def Main() -> None:
 	#dispatcher.add_handler(CommandHandler('time', cTime))
 	dispatcher.add_handler(CommandHandler('eval', cEval))
 	dispatcher.add_handler(CommandHandler('exec', cExec))
-	#dispatcher.add_handler(CommandHandler('web', cWeb))
 
 	for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):
 		dispatcher.add_handler(CommandHandler(Cmd, multifun))

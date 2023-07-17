@@ -106,27 +106,37 @@ def cExec(update:Update, context:CallbackContext) -> None:
 			CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
 			reply_to_message_id=update.message.message_id)
 
+# This is now broken with the new infer escape system...
 def cWeb(Context, Data=None) -> None:
 	if Data.Body:
 		try:
 			QueryUrl = UrlParse.quote(Data.Body)
 			Req = HttpGet(f'https://html.duckduckgo.com/html?q={QueryUrl}')
 			#Caption = f'[🦆🔎 "*{CharEscape(Data.Body, "MARKDOWN")}*"](https://duckduckgo.com/?q={CharEscape(QueryUrl, "MARKDOWN")})\n\n'
-			Caption = '[🦆🔎 "*{Data.Body}*"](https://duckduckgo.com/?q={QueryUrl})\n\n'
+			Caption = f'[🦆🔎 "*{Data.Body}*"](https://duckduckgo.com/?q={QueryUrl})\n\n'
 			Index = 0
 			for Line in Req.read().decode().replace('\t', ' ').splitlines():
 				if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
 					Index += 1
-					#Link = CharEscape(UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0]), 'MARKDOWN')
-					#Title = CharEscape(UrlParse.unquote(Line.split('</a>')[0].split('</span>')[-1].split('>')[1]), 'MARKDOWN')
 					Link = UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
-					Title = UrlParse.unquote(Line.split('</a>')[0].split('</span>')[-1].split('>')[1])
+					Title = HtmlUnescape(Line.split('</a>')[0].split('</span>')[-1].split('>')[1])
 					Domain = Link.split('://')[1].split('/')[0]
-					#Caption += f'{Index}\. [{Title}]({Link}) \[`{Domain}`\]\n\n'
-					Caption += f'{Index}. [{Title}]({Link}) [`{Domain}`]\n\n'
+					Caption += f'{Index}&period; {Title} --- {Link} --- `{Domain}`\n\n'
 			SendMsg(Context, {"Text": Caption})
 		except Exception:
 			raise
+
+def cTranslate(Context, Data=None) -> None:
+	if Data.Body:
+		try:
+			Lang = Data.Tokens[1]
+			# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
+			Result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{Lang}/{UrlParse.quote(Lang.join(Data.Body.split(Lang)[1:]))}').read())["translation"]
+			SendMsg(Context, {"Text": Result})
+		except Exception:
+			raise
+	else:
+		pass
 
 def cUnsplash(Context, Data=None) -> None:
 	try:
