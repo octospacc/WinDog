@@ -1,5 +1,5 @@
 StartWinDog
 Database.json
 Dump.txt
-Config.py
+/Config.py
 *.pyc

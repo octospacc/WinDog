@@ -5,6 +5,7 @@
 # ================================== #
 
 import json, hashlib, re, time, subprocess
+from binascii import hexlify
 from magic import Magic
 from os import listdir
 from os.path import isfile
@@ -36,9 +37,9 @@ for Dir in ('Lib', 'Mod'):
 
 Endpoints = {
 	"start": cStart,
-	#"help": cHelp,
+	"help": cHelp,
 	#"config": cConfig,
-	#"source": cSource,
+	"source": cSource,
 	"ping": cPing,
 	"echo": cEcho,
 	"wish": percenter,
@@ -51,8 +52,10 @@ Endpoints = {
 	#"hands": multifun,
 	#"sessocto": multifun,
 	"hash": cHash,
-	#"eval": cEval,
+	"eval": cEval,
 	#"exec": cExec,
+	"format": cFormat,
+	"frame": cFrame,
 	"web": cWeb,
 	"translate": cTranslate,
 	"unsplash": cUnsplash,
@@ -130,6 +133,13 @@ def MarkdownCode(Text:str, Block:bool) -> str:
 
 def MdToTxt(Md:str) -> str:
 	return BeautifulSoup(markdown(Md), 'html.parser').get_text(' ')
+
+def HtmlEscapeFull(Raw:str) -> str:
+	New = ''
+	Hex = hexlify(Raw.encode()).decode()
+	for i in range(0, len(Hex), 2):
+		New += f'&#x{Hex[i] + Hex[i+1]};'
+	return New
 
 def CmdAllowed(update) -> bool:
 	if not TGRestrict:
@@ -262,12 +272,8 @@ def Main() -> None:
 	updater = Updater(TGToken)
 	dispatcher = updater.dispatcher
 
-	#dispatcher.add_handler(CommandHandler('start', cStart))
 	dispatcher.add_handler(CommandHandler('config', cConfig))
-	dispatcher.add_handler(CommandHandler('help', cHelp))
-	dispatcher.add_handler(CommandHandler('source', cSource))
 	#dispatcher.add_handler(CommandHandler('time', cTime))
-	dispatcher.add_handler(CommandHandler('eval', cEval))
 	dispatcher.add_handler(CommandHandler('exec', cExec))
 
 	for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):

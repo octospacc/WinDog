@@ -3,6 +3,8 @@
 # Licensed under AGPLv3 by OctoSpacc #
 # ================================== #
 
+# Module: Percenter
+# Provides fun trough percentage-based toys.
 def percenter(Context, Data=None) -> None:
 	if Data.Body:
 		Text = choice(Locale.__(f'{Data.Name}.done'))
@@ -10,6 +12,8 @@ def percenter(Context, Data=None) -> None:
 		Text = choice(Locale.__(f'{Data.Name}.empty'))
 	SendMsg(Context, {"Text": Text.format(Cmd=Data.Tokens[0], Percent=RandPercent(), Thing=Data.Body)})
 
+# Module: Multifun
+# Provides fun trough preprogrammed-text-based toys.
 def multifun(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
@@ -33,6 +37,8 @@ def multifun(update:Update, context:CallbackContext) -> None:
 			Text = CharEscape(choice(Locale.__(f'{Key}.empty')), 'MARKDOWN_SPEECH')
 	update.message.reply_markdown_v2(Text, reply_to_message_id=ReplyToMsg)
 
+# Module: Start
+# ...
 def cStart(Context, Data=None) -> None:
 	SendMsg(Context, {"Text": choice(Locale.__('start')).format('stupid')})
 
@@ -45,17 +51,18 @@ def cStart(Context, Data=None) -> None:
 #		CharEscape(choice(Locale.__('start')), '.!').format(user.mention_markdown_v2()),
 #		reply_to_message_id=update.message.message_id)
 
-def cHelp(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	update.message.reply_markdown_v2(
-		CharEscape(choice(Locale.__('help')), 'MARKDOWN_SPEECH'),
-		reply_to_message_id=update.message.message_id)
+# Module: Help
+# ...
+def cHelp(Context, Data=None) -> None:
+	SendMsg(Context, {"Text": choice(Locale.__('help'))})
 
-def cSource(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
+# Module: Source
+# Provides a copy of the bot source codes and/or instructions on how to get it.
+def cSource(Context, Data=None) -> None:
+	pass
 
+# Module: Config
+# ...
 def cConfig(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
@@ -63,9 +70,13 @@ def cConfig(update:Update, context:CallbackContext) -> None:
 	# ... language: en, it, ...
 	# ... userdata: import, export, delete
 
+# Module: Ping
+# Responds pong, useful for testing messaging latency.
 def cPing(Context, Data=None) -> None:
 	SendMsg(Context, {"Text": "*Pong!*"})
 
+# Module: Echo
+# Responds back with the original text of the received message.
 def cEcho(Context, Data=None) -> None:
 	if Data.Body:
 		SendMsg(Context, {"Text": Data.Body})
@@ -77,6 +88,8 @@ def cEcho(Context, Data=None) -> None:
 #		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),
 #		reply_to_message_id=update.message.message_id)
 
+# Module: Hash
+# Responds with the hash-sum of a message received.
 def cHash(Context, Data=None) -> None:
 	if len(Data.Tokens) >= 3 and Data.Tokens[1] in hashlib.algorithms_available:
 		Alg = Data.Tokens[1]
@@ -84,13 +97,13 @@ def cHash(Context, Data=None) -> None:
 	else:
 		SendMsg(Context, {"Text": choice(Locale.__('hash.usage')).format(Data.Tokens[0], hashlib.algorithms_available)})
 
-def cEval(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	update.message.reply_markdown_v2(
-		CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
-		reply_to_message_id=update.message.message_id)
+# Module: Eval
+# Execute a Python command (or safe literal operation) in the current context.
+def cEval(Context, Data=None) -> None:
+	SendMsg(Context, {"Text": choice(Locale.__('eval'))})
 
+# Module: Exec
+# Execute a system command and return stdout/stderr.
 def cExec(update:Update, context:CallbackContext) -> None:
 	Cmd = HandleCmd(update)
 	if not Cmd: return
@@ -106,14 +119,25 @@ def cExec(update:Update, context:CallbackContext) -> None:
 			CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
 			reply_to_message_id=update.message.message_id)
 
+# Module: Format
+# Reformat text using an handful of rules
+def cFormat(Context, Data=None) -> None:
+	pass
+
+# Module: Frame
+# Frame someone's message into a platform-styled image.
+def cFrame(Context, Data=None) -> None:
+	pass
+
+# Module: Web
+# Provides results of a DuckDuckGo search.
 # This is now broken with the new infer escape system...
 def cWeb(Context, Data=None) -> None:
 	if Data.Body:
 		try:
 			QueryUrl = UrlParse.quote(Data.Body)
 			Req = HttpGet(f'https://html.duckduckgo.com/html?q={QueryUrl}')
-			#Caption = f'[🦆🔎 "*{CharEscape(Data.Body, "MARKDOWN")}*"](https://duckduckgo.com/?q={CharEscape(QueryUrl, "MARKDOWN")})\n\n'
-			Caption = f'[🦆🔎 "*{Data.Body}*"](https://duckduckgo.com/?q={QueryUrl})\n\n'
+			Caption = f'🦆🔎 "*{Data.Body}*": https://duckduckgo.com/?q={QueryUrl}\n\n'
 			Index = 0
 			for Line in Req.read().decode().replace('\t', ' ').splitlines():
 				if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
@@ -121,11 +145,15 @@ def cWeb(Context, Data=None) -> None:
 					Link = UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
 					Title = HtmlUnescape(Line.split('</a>')[0].split('</span>')[-1].split('>')[1])
 					Domain = Link.split('://')[1].split('/')[0]
-					Caption += f'{Index}&period; {Title} --- {Link} --- `{Domain}`\n\n'
-			SendMsg(Context, {"Text": Caption})
+					Caption += f'{Index}&period; *{HtmlEscapeFull(Title)}*: {Link} &#91;`{Domain}`&#93;\n\n'
+			SendMsg(Context, {"Text": f'{Caption}...'})
 		except Exception:
 			raise
+	else:
+		pass
 
+# Module: Translate
+# Return the received message after translating it in another language.
 def cTranslate(Context, Data=None) -> None:
 	if Data.Body:
 		try:
@@ -138,6 +166,8 @@ def cTranslate(Context, Data=None) -> None:
 	else:
 		pass
 
+# Module: Unsplash
+# Send a picture sourced from Unsplash.
 def cUnsplash(Context, Data=None) -> None:
 	try:
 		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Data.Body)}')
@@ -145,6 +175,8 @@ def cUnsplash(Context, Data=None) -> None:
 	except Exception:
 		raise
 
+# Module: Safebooru
+# Send a picture sourced from Safebooru.
 def cSafebooru(Context, Data=None) -> None:
 	ApiUrl = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
 	try:
