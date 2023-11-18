@@ -87,6 +87,17 @@ def cEcho(Context, Data=None) -> None:
 	else:
 		SendMsg(Context, {"Text": choice(Locale.__('echo.empty'))})
 
+# Module: Broadcast
+# Sends an admin message over to another destination
+def cBroadcast(Context, Data=None) -> None:
+	if len(Data.Tokens) >= 3 and Data.User['Id'] in AdminIds:
+		Dest = Data.Tokens[1]
+		Text = ' '.join(Data.Tokens[2:])
+		SendMsg(Context, {"TextPlain": Text}, Dest)
+		SendMsg(Context, {"TextPlain": "Executed."})
+	else:
+		SendMsg(Context, {"Text": choice(Locale.__('eval'))})
+
 #def cTime(update:Update, context:CallbackContext) -> None:
 #	update.message.reply_markdown_v2(
 #		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),

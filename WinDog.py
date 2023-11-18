@@ -124,7 +124,7 @@ def CmdAllowed(update) -> bool:
 	return False
 
 def HandleCmd(update):
-	filters(update)
+	TelegramQueryHandle(update)
 	if CmdAllowed(update):
 		return ParseCmd(update.message.text)
 	else:
@@ -135,23 +135,28 @@ def GetRawTokens(Text:str) -> list:
 
 def ParseCmd(Msg) -> dict:
 	Name = Msg.lower().split(' ')[0][1:].split('@')[0]
-	return SimpleNamespace(**{
-		"Name": Name,
-		"Body": Name.join(Msg.split(Name)[1:]).strip(),
-		"Tokens": GetRawTokens(Msg),
-		"User": {"Name": "", "Tag": "", "Id": ""},
-		"Tagged": {},
-	})
+	if Name:
+		return SimpleNamespace(**{
+			"Name": Name,
+			"Body": Name.join(Msg.split(Name)[1:]).strip(),
+			"Tokens": GetRawTokens(Msg),
+			"User": {},
+			"Tagged": {},
+		})
 
-def filters(update:Update, context:CallbackContext=None) -> None:
-	Cmd = ParseCmd(update.message.text)
-	if Cmd.Tokens[0][0] in CmdPrefixes and Cmd.Name in Endpoints:
-		Endpoints[Cmd.Name](update, Cmd)
-	if Debug and Dumper:
-		Text = update.message.text
-		Text = (Text.replace('\n', '\\n') if Text else '')
-		with open('Dump.txt', 'a') as File:
-			File.write(f'[{time.ctime()}] [{int(time.time())}] [{update.message.chat.id}] [{update.message.message_id}] [{update.message.from_user.id}] {Text}\n')
+def TelegramQueryHandle(update:Update, context:CallbackContext=None) -> None:
+	if update and update.message:
+		Cmd = ParseCmd(update.message.text)
+		if Cmd and Cmd.Tokens[0][0] in CmdPrefixes and Cmd.Name in Endpoints:
+			Cmd.User['Name'] = 'null'
+			Cmd.User['Tag'] = 'null'
+			Cmd.User['Id'] = f'{update.message.from_user.id}@telegram'
+			Endpoints[Cmd.Name]({ "Event": update, "Manager": context }, Cmd)
+		if Debug and Dumper:
+			Text = update.message.text
+			Text = (Text.replace('\n', '\\n') if Text else '')
+			with open('Dump.txt', 'a') as File:
+				File.write(f'[{time.ctime()}] [{int(time.time())}] [{update.message.chat.id}] [{update.message.message_id}] [{update.message.from_user.id}] {Text}\n')
 	'''
 	if CmdAllowed(update):
 		ChatID = update.message.chat.id
@@ -200,7 +205,7 @@ def RandHexStr(Len:int) -> str:
 def HttpGet(Url:str):
 	return urlopen(Request(Url, headers={"User-Agent": WebUserAgent}))
 
-def SendMsg(Context, Data):
+def SendMsg(Context, Data, Destination=None) -> None:
 	#Data: Text, Media, Files
 	if type(Context) == dict:
 		Event = Context['Event'] if 'Event' in Context else None
@@ -230,18 +235,21 @@ def SendMsg(Context, Data):
 				in_reply_to_id=Event['status']['id'],
 				visibility=('direct' if Event['status']['visibility'] == 'direct' else 'unlisted'),
 			)
-	elif isinstance(Manager, telegram.Update):
-		if InDict(Data, 'Media'):
-			Event.message.reply_photo(
-				Data['Media'],
-				caption=(TextMarkdown if TextMarkdown else TextPlain if TextPlain else None),
-				parse_mode=('MarkdownV2' if TextMarkdown else None),
-				reply_to_message_id=Event.message.message_id,
-			)
-		elif TextMarkdown:
-			Event.message.reply_markdown_v2(TextMarkdown, reply_to_message_id=Event.message.message_id)
-		elif TextPlain:
-			Event.message.reply_text(TextPlain,reply_to_message_id=Event.message.message_id)
+	elif isinstance(Event, telegram.Update):
+		if Destination:
+			Manager.bot.send_message(Destination, text=TextPlain)
+		else:
+			if InDict(Data, 'Media'):
+				Event.message.reply_photo(
+					Data['Media'],
+					caption=(TextMarkdown if TextMarkdown else TextPlain if TextPlain else None),
+					parse_mode=('MarkdownV2' if TextMarkdown else None),
+					reply_to_message_id=Event.message.message_id,
+				)
+			elif TextMarkdown:
+				Event.message.reply_markdown_v2(TextMarkdown, reply_to_message_id=Event.message.message_id)
+			elif TextPlain:
+				Event.message.reply_text(TextPlain,reply_to_message_id=Event.message.message_id)
 
 def Main() -> None:
 	SetupDb()
@@ -260,7 +268,7 @@ def Main() -> None:
 		dispatcher.add_handler(CommandHandler(Cmd, multifun))
 
 	#dispatcher.add_handler(CommandHandler('setfilter', setfilter))
-	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, filters))
+	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramQueryHandle))
 
 	print('Starting WinDog...')
 	updater.start_polling()

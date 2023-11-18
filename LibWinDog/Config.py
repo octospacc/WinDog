@@ -12,6 +12,8 @@ TelegramAdmins = [ 123456789, ]
 TelegramWhitelist = [ 123456789, ]
 TelegramRestrict = False
 
+AdminIds = [ "123456789@telegram", "admin@activitypub@mastodon.example.com", ]
+
 DefaultLang = 'en'
 Debug = False
 Dumper = False
@@ -27,6 +29,7 @@ Endpoints = {
 	"source": cSource,
 	"ping": cPing,
 	"echo": cEcho,
+	"broadcast": cBroadcast,
 	#"repeat": cRepeat,
 	"wish": percenter,
 	"level": percenter,
