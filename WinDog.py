@@ -28,39 +28,12 @@ MdEscapes = '\\`*_{}[]()<>#+-.!|='
 Db = {"Chats": {}}
 Locale = {"Fallback": {}}
 
-for Dir in ('Lib', 'Mod'):
+for Dir in ('Mod', 'Lib'):
 	for File in listdir(f'./{Dir}WinDog'):
 		File = f'./{Dir}WinDog/{File}'
 		if isfile(File):
 			with open(File, 'r') as File:
 				exec(File.read())
-
-Endpoints = {
-	"start": cStart,
-	"help": cHelp,
-	#"config": cConfig,
-	"source": cSource,
-	"ping": cPing,
-	"echo": cEcho,
-	"wish": percenter,
-	"level": percenter,
-	#"hug": multifun,
-	#"pat": multifun,
-	#"poke": multifun,
-	#"cuddle": multifun,
-	#"floor": multifun,
-	#"hands": multifun,
-	#"sessocto": multifun,
-	"hash": cHash,
-	"eval": cEval,
-	#"exec": cExec,
-	"format": cFormat,
-	"frame": cFrame,
-	"web": cWeb,
-	"translate": cTranslate,
-	"unsplash": cUnsplash,
-	"safebooru": cSafebooru,
-}
 
 def SetupLocale() -> None:
 	global Locale
@@ -142,11 +115,11 @@ def HtmlEscapeFull(Raw:str) -> str:
 	return New
 
 def CmdAllowed(update) -> bool:
-	if not TGRestrict:
+	if not TelegramRestrict:
 		return True
 	else:
-		if TGRestrict.lower() == 'whitelist':
-			if update.message.chat.id in TGWhitelist:
+		if TelegramRestrict.lower() == 'whitelist':
+			if update.message.chat.id in TelegramWhitelist:
 				return True
 	return False
 
@@ -234,15 +207,23 @@ def SendMsg(Context, Data):
 		Manager = Context['Manager'] if 'Manager' in Context else None
 	else:
 		[Event, Manager] = [Context, Context]
-	if InDict(Data, 'Text'):
+
+	if InDict(Data, 'TextPlain') or InDict(Data, 'TextMarkdown'):
+		TextPlain = InDict(Data, 'TextPlain')
+		TextMarkdown = InDict(Data, 'TextMarkdown')
+		if not TextPlain:
+			TextPlain = TextMarkdown
+	elif InDict(Data, 'Text'):
+		# our old system attemps to always receive Markdown and retransform when needed
 		TextPlain = MdToTxt(Data['Text'])
 		TextMarkdown = CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain))
+
 	if isinstance(Manager, mastodon.Mastodon):
 		if InDict(Data, 'Media'):
 			Media = Manager.media_post(Data['Media'], Magic(mime=True).from_buffer(Data['Media']))
 			while Media['url'] == 'null':
 				Media = Manager.media(Media)
-		if InDict(Data, 'Text'):
+		if TextPlain:
 			Manager.status_post(
 				status=(TextPlain + '\n\n@' + Event['account']['acct']),
 				media_ids=(Media if InDict(Data, 'Media') else None),
@@ -253,15 +234,14 @@ def SendMsg(Context, Data):
 		if InDict(Data, 'Media'):
 			Event.message.reply_photo(
 				Data['Media'],
-				caption=(TextMarkdown if InDict(Data, 'Text') else None),
-				parse_mode='MarkdownV2',
+				caption=(TextMarkdown if TextMarkdown else TextPlain if TextPlain else None),
+				parse_mode=('MarkdownV2' if TextMarkdown else None),
 				reply_to_message_id=Event.message.message_id,
 			)
-		elif InDict(Data, 'Text'):
-			Event.message.reply_markdown_v2(
-				TextMarkdown,
-				reply_to_message_id=Event.message.message_id,
-			)
+		elif TextMarkdown:
+			Event.message.reply_markdown_v2(TextMarkdown, reply_to_message_id=Event.message.message_id)
+		elif TextPlain:
+			Event.message.reply_text(TextPlain,reply_to_message_id=Event.message.message_id)
 
 def Main() -> None:
 	SetupDb()
@@ -269,12 +249,12 @@ def Main() -> None:
 
 	#Private['Chats'].update({update.message.chat.id:{}})
 
-	updater = Updater(TGToken)
+	updater = Updater(TelegramToken)
 	dispatcher = updater.dispatcher
 
 	dispatcher.add_handler(CommandHandler('config', cConfig))
 	#dispatcher.add_handler(CommandHandler('time', cTime))
-	dispatcher.add_handler(CommandHandler('exec', cExec))
+	#dispatcher.add_handler(CommandHandler('repeat', cRepeat))
 
 	for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):
 		dispatcher.add_handler(CommandHandler(Cmd, multifun))

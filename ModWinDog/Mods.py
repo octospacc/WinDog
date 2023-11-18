@@ -21,7 +21,7 @@ def multifun(update:Update, context:CallbackContext) -> None:
 	ReplyToMsg = update.message.message_id
 	if update.message.reply_to_message:
 		ReplyFromUID = update.message.reply_to_message.from_user.id
-		if ReplyFromUID == TGID and 'bot' in Locale.__(Key):
+		if ReplyFromUID == TelegramId and 'bot' in Locale.__(Key):
 			Text = CharEscape(choice(Locale.__(f'{Key}.bot')), 'MARKDOWN_SPEECH')
 		elif ReplyFromUID == update.message.from_user.id and 'self' in Locale.__(Key):
 			FromUName = CharEscape(update.message.from_user.first_name, 'MARKDOWN')
@@ -54,12 +54,16 @@ def cStart(Context, Data=None) -> None:
 # Module: Help
 # ...
 def cHelp(Context, Data=None) -> None:
-	SendMsg(Context, {"Text": choice(Locale.__('help'))})
+	#SendMsg(Context, {"Text": choice(Locale.__('help'))})
+	Commands = ''
+	for Cmd in Endpoints.keys():
+		Commands += f'* /{Cmd}\n'
+	SendMsg(Context, {"TextPlain": f'Available Endpoints (WIP):\n{Commands}'})
 
 # Module: Source
 # Provides a copy of the bot source codes and/or instructions on how to get it.
 def cSource(Context, Data=None) -> None:
-	pass
+	SendMsg(Context, {"TextPlain": "{https://gitlab.com/octospacc/WinDog}"})
 
 # Module: Config
 # ...
@@ -93,7 +97,11 @@ def cEcho(Context, Data=None) -> None:
 def cHash(Context, Data=None) -> None:
 	if len(Data.Tokens) >= 3 and Data.Tokens[1] in hashlib.algorithms_available:
 		Alg = Data.Tokens[1]
-		SendMsg(Context, {"Text": hashlib.new(Alg, Alg.join(Data.Body.split(Alg)[1:]).strip().encode()).hexdigest()})
+		Hash = hashlib.new(Alg, Alg.join(Data.Body.split(Alg)[1:]).strip().encode()).hexdigest()
+		SendMsg(Context, {
+			"TextPlain": Hash,
+			"TextMarkdown": MarkdownCode(Hash, True),
+		})
 	else:
 		SendMsg(Context, {"Text": choice(Locale.__('hash.usage')).format(Data.Tokens[0], hashlib.algorithms_available)})
 
@@ -104,20 +112,18 @@ def cEval(Context, Data=None) -> None:
 
 # Module: Exec
 # Execute a system command and return stdout/stderr.
-def cExec(update:Update, context:CallbackContext) -> None:
-	Cmd = HandleCmd(update)
-	if not Cmd: return
-	Toks = Cmd.Tokens
-	if len(Cmd.Tokens) >= 2 and Cmd.Tokens[1].lower() in ExecAllowed:
-		Cmd = Toks[1].lower()
+def cExec(Context, Data=None) -> None:
+	if len(Data.Tokens) >= 2 and Data.Tokens[1].lower() in ExecAllowed:
+		Cmd = Data.Tokens[1].lower()
 		Out = subprocess.run(('sh', '-c', f'export PATH=$PATH:/usr/games; {Cmd}'), stdout=subprocess.PIPE).stdout.decode()
 		# <https://stackoverflow.com/a/14693789>
-		Caption = (re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', Out)) #if ExecAllowed[Cmd] else Out)
-		update.message.reply_markdown_v2(MarkdownCode(Caption, True), reply_to_message_id=update.message.message_id)
+		Caption = (re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])').sub('', Out))
+		SendMsg(Context, {
+			"TextPlain": Caption,
+			"TextMarkdown": MarkdownCode(Caption, True),
+		})
 	else:
-		update.message.reply_markdown_v2(
-			CharEscape(choice(Locale.__('eval')), 'MARKDOWN_SPEECH'),
-			reply_to_message_id=update.message.message_id)
+		SendMsg(Context, {"Text": choice(Locale.__('eval'))})
 
 # Module: Format
 # Reformat text using an handful of rules
@@ -131,22 +137,20 @@ def cFrame(Context, Data=None) -> None:
 
 # Module: Web
 # Provides results of a DuckDuckGo search.
-# This is now broken with the new infer escape system...
 def cWeb(Context, Data=None) -> None:
 	if Data.Body:
 		try:
 			QueryUrl = UrlParse.quote(Data.Body)
 			Req = HttpGet(f'https://html.duckduckgo.com/html?q={QueryUrl}')
-			Caption = f'🦆🔎 "*{Data.Body}*": https://duckduckgo.com/?q={QueryUrl}\n\n'
+			Caption = f'🦆🔎 "{Data.Body}": https://duckduckgo.com/?q={QueryUrl}\n\n'
 			Index = 0
 			for Line in Req.read().decode().replace('\t', ' ').splitlines():
 				if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
 					Index += 1
 					Link = UrlParse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
 					Title = HtmlUnescape(Line.split('</a>')[0].split('</span>')[-1].split('>')[1])
-					Domain = Link.split('://')[1].split('/')[0]
-					Caption += f'{Index}&period; *{HtmlEscapeFull(Title)}*: {Link} &#91;`{Domain}`&#93;\n\n'
-			SendMsg(Context, {"Text": f'{Caption}...'})
+					Caption += f'[{Index}] {Title} : {{{Link}}}\n\n'
+			SendMsg(Context, {"TextPlain": f'{Caption}...'})
 		except Exception:
 			raise
 	else:
@@ -160,7 +164,7 @@ def cTranslate(Context, Data=None) -> None:
 			Lang = Data.Tokens[1]
 			# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
 			Result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{Lang}/{UrlParse.quote(Lang.join(Data.Body.split(Lang)[1:]))}').read())["translation"]
-			SendMsg(Context, {"Text": Result})
+			SendMsg(Context, {"TextPlain": Result})
 		except Exception:
 			raise
 	else:
@@ -171,7 +175,12 @@ def cTranslate(Context, Data=None) -> None:
 def cUnsplash(Context, Data=None) -> None:
 	try:
 		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Data.Body)}')
-		SendMsg(Context, {"Text": MarkdownCode(Req.geturl().split('?')[0], True), "Media": Req.read()})
+		ImgUrl = Req.geturl().split('?')[0]
+		SendMsg(Context, {
+			"TextPlain": f'{{{ImgUrl}}}',
+			"TextMarkdown": MarkdownCode(ImgUrl, True),
+			"Media": Req.read(),
+		})
 	except Exception:
 		raise
 
@@ -198,7 +207,11 @@ def cSafebooru(Context, Data=None) -> None:
 					ImgId = ImgUrl.split('?')[-1]
 					break
 		if ImgUrl:
-			SendMsg(Context, {"Text": (f'`{ImgId}`\n' + MarkdownCode(ImgUrl, True)), "Media": HttpGet(ImgUrl).read()})
+			SendMsg(Context, {
+				"TextPlain": f'[{ImgId}]\n{{{ImgUrl}}}',
+				"TextMarkdown": f'\\[`{ImgId}`\\]\n{MarkdownCode(ImgUrl, True)}',
+				"Media": HttpGet(ImgUrl).read(),
+			})
 		else:
 			pass
 	except Exception:

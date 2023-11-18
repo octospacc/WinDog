@@ -10,4 +10,4 @@ beautifulsoup4
 Markdown
 
 # Telegram support
-python-telegram-bot
+python-telegram-bot==13.4.1
