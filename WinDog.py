@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 import json, hashlib, re, time, subprocess
 from binascii import hexlify
@@ -25,8 +25,8 @@ from urllib.request import urlopen, Request
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
 MdEscapes = '\\`*_{}[]()<>#+-.!|='
 
-Db = {"Chats": {}}
-Locale = {"Fallback": {}}
+Db = { "Rooms": {}, "Users": {}, }
+Locale = { "Fallback": {}, }
 
 for Dir in ('Mod', 'Lib'):
 	for File in listdir(f'./{Dir}WinDog'):
@@ -140,17 +140,28 @@ def ParseCmd(Msg) -> dict:
 			"Name": Name,
 			"Body": Name.join(Msg.split(Name)[1:]).strip(),
 			"Tokens": GetRawTokens(Msg),
-			"User": {},
-			"Tagged": {},
+			"User": None,
+			"Quoted": None,
 		})
 
 def TelegramQueryHandle(update:Update, context:CallbackContext=None) -> None:
 	if update and update.message:
 		Cmd = ParseCmd(update.message.text)
 		if Cmd and Cmd.Tokens[0][0] in CmdPrefixes and Cmd.Name in Endpoints:
-			Cmd.User['Name'] = 'null'
-			Cmd.User['Tag'] = 'null'
-			Cmd.User['Id'] = f'{update.message.from_user.id}@telegram'
+			Cmd.User = {
+				"Name": update.message.from_user.first_name,
+				"Tag": update.message.from_user.username,
+				"Id": f'{update.message.from_user.id}@telegram',
+			}
+			if update.message.reply_to_message:
+				Cmd.Quoted = {
+					"Body": update.message.reply_to_message.text,
+					"User": {
+						"Name": update.message.reply_to_message.from_user.first_name,
+						"Tag": update.message.reply_to_message.from_user.username,
+						"Id": f'{update.message.reply_to_message.from_user.id}@telegram',
+					},
+				}
 			Endpoints[Cmd.Name]({ "Event": update, "Manager": context }, Cmd)
 		if Debug and Dumper:
 			Text = update.message.text
@@ -168,16 +179,6 @@ def TelegramQueryHandle(update:Update, context:CallbackContext=None) -> None:
 						reply_to_message_id=update.message.message_id)
 	'''
 
-def setfilter(update:Update, context:CallbackContext) -> None:
-	pass
-	'''
-	if CmdAllowed(update):
-		ChatID = update.message.chat.id
-		if ChatID not in Private['Chats'] or 'Filters' not in Private['Chats'][ChatID]:
-			Private['Chats'][ChatID] = {'Filters':{}}
-		Private['Chats'][ChatID]['Filters'][update.message.text] = {'Text':0}
-	'''
-
 def RandPercent() -> int:
 	Num = randint(0,100)
 	if Num == 100:
@@ -192,21 +193,10 @@ def RandHexStr(Len:int) -> str:
 		Hex += choice('0123456789abcdef')
 	return Hex
 
-#def CmdArgs(Msg:str, Cfg:tuple=None):
-#	Args = []
-#	Msg = Msg.strip().replace('\t', ' ')
-#	if Cfg:
-#		for i in Cfg:
-#			Args += [Msg.replace('  ', ' ').replace('  ', ' ').split(' ')[:i]]
-#			Msg = Msg
-#	else:
-#		return Msg.replace('  ', ' ').replace('  ', ' ').split(' ')
-
 def HttpGet(Url:str):
 	return urlopen(Request(Url, headers={"User-Agent": WebUserAgent}))
 
 def SendMsg(Context, Data, Destination=None) -> None:
-	#Data: Text, Media, Files
 	if type(Context) == dict:
 		Event = Context['Event'] if 'Event' in Context else None
 		Manager = Context['Manager'] if 'Manager' in Context else None
@@ -255,23 +245,14 @@ def Main() -> None:
 	SetupDb()
 	SetupLocale()
 
-	#Private['Chats'].update({update.message.chat.id:{}})
-
-	updater = Updater(TelegramToken)
-	dispatcher = updater.dispatcher
-
-	dispatcher.add_handler(CommandHandler('config', cConfig))
-	#dispatcher.add_handler(CommandHandler('time', cTime))
-	#dispatcher.add_handler(CommandHandler('repeat', cRepeat))
-
-	for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):
-		dispatcher.add_handler(CommandHandler(Cmd, multifun))
-
-	#dispatcher.add_handler(CommandHandler('setfilter', setfilter))
-	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramQueryHandle))
-
-	print('Starting WinDog...')
-	updater.start_polling()
+	if TelegramToken:
+		updater = Updater(TelegramToken)
+		dispatcher = updater.dispatcher
+		dispatcher.add_handler(CommandHandler('config', cConfig))
+		for Cmd in ('hug', 'pat', 'poke', 'cuddle', 'floor', 'hands', 'sessocto'):
+			dispatcher.add_handler(CommandHandler(Cmd, multifun))
+		dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramQueryHandle))
+		updater.start_polling()
 
 	if MastodonUrl and MastodonToken:
 		Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
@@ -296,5 +277,6 @@ if __name__ == '__main__':
 	except Exception:
 		pass
 
+	print('Starting WinDog...')
 	Main()
 	print('Closing WinDog...')

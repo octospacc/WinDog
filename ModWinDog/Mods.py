@@ -1,7 +1,9 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
+
+from urlextract import URLExtract
 
 # Module: Percenter
 # Provides fun trough percentage-based toys.
@@ -38,23 +40,13 @@ def multifun(update:Update, context:CallbackContext) -> None:
 	update.message.reply_markdown_v2(Text, reply_to_message_id=ReplyToMsg)
 
 # Module: Start
-# ...
+# Salutes the user, for now no other purpose except giving a feel that the bot is working.
 def cStart(Context, Data=None) -> None:
-	SendMsg(Context, {"Text": choice(Locale.__('start')).format('stupid')})
-
-#def cStart(update:Update, context:CallbackContext) -> None:
-#	Cmd = HandleCmd(update)
-#	if not Cmd: return
-#	user = update.effective_user
-#	update.message.reply_markdown_v2(#'Hi\!',
-#		#CharEscape(choice(Locale.__('start')).format(CharEscape(user.mention_markdown_v2(), 'MARKDOWN')), 'MARKDOWN'),
-#		CharEscape(choice(Locale.__('start')), '.!').format(user.mention_markdown_v2()),
-#		reply_to_message_id=update.message.message_id)
+	SendMsg(Context, {"Text": choice(Locale.__('start')).format(Data.User['Name'])})
 
 # Module: Help
-# ...
+# Provides help for the bot. For now, it just lists the commands.
 def cHelp(Context, Data=None) -> None:
-	#SendMsg(Context, {"Text": choice(Locale.__('help'))})
 	Commands = ''
 	for Cmd in Endpoints.keys():
 		Commands += f'* /{Cmd}\n'
@@ -117,12 +109,12 @@ def cHash(Context, Data=None) -> None:
 		SendMsg(Context, {"Text": choice(Locale.__('hash.usage')).format(Data.Tokens[0], hashlib.algorithms_available)})
 
 # Module: Eval
-# Execute a Python command (or safe literal operation) in the current context.
+# Execute a Python command (or safe literal operation) in the current context. Currently not implemented.
 def cEval(Context, Data=None) -> None:
 	SendMsg(Context, {"Text": choice(Locale.__('eval'))})
 
 # Module: Exec
-# Execute a system command and return stdout/stderr.
+# Execute a system command from the allowed ones and return stdout/stderr.
 def cExec(Context, Data=None) -> None:
 	if len(Data.Tokens) >= 2 and Data.Tokens[1].lower() in ExecAllowed:
 		Cmd = Data.Tokens[1].lower()
@@ -137,14 +129,45 @@ def cExec(Context, Data=None) -> None:
 		SendMsg(Context, {"Text": choice(Locale.__('eval'))})
 
 # Module: Format
-# Reformat text using an handful of rules
+# Reformat text using an handful of rules. Currently not implemented.
 def cFormat(Context, Data=None) -> None:
 	pass
 
 # Module: Frame
-# Frame someone's message into a platform-styled image.
+# Frame someone's message into a platform-styled image. Currently not implemented.
 def cFrame(Context, Data=None) -> None:
 	pass
+
+# Module: Embedded
+# Rewrite a link trying to make sure we have an embed view.
+def cEmbedded(Context, Data=None) -> None:
+	if len(Data.Tokens) >= 2:
+		# Find links in command body
+		Text = Data.Body
+	elif Data.Quoted and Data.Quoted['Body']:
+		# Find links in quoted message
+		Text = Data.Quoted['Body']
+	else:
+		# Error
+		return
+	pass
+	Urls = URLExtract().find_urls(Text)
+	if len(Urls) > 0:
+		Proto = 'https://'
+		Url = Urls[0]
+		UrlLow = Url.lower()
+		if UrlLow.startswith('http://') or UrlLow.startswith('https://'):
+			Proto = Url.split('://')[0] + '://'
+			Url = '://'.join(Url.split('://')[1:])
+			UrlLow = '://'.join(UrlLow.split('://')[1:])
+		if UrlLow.startswith('facebook.com/') or UrlLow.startswith('www.facebook.com/') or UrlLow.startswith('m.facebook.com/') or UrlLow.startswith('mbasic.facebook.com/'):
+			Url = 'https://hlb0.octt.eu.org/cors-main.php/https://' + Url
+			Proto = ''
+		elif UrlLow.startswith('instagram.com/'):
+			Url = 'ddinstagram.com/' + Url[len('instagram.com/'):]
+		elif UrlLow.startswith('twitter.com/'):
+			Url = 'fxtwitter.com/' + Url[len('twitter.com/'):]
+		SendMsg(Context, {"TextPlain": Proto+Url})
 
 # Module: Web
 # Provides results of a DuckDuckGo search.

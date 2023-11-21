@@ -3,6 +3,7 @@
 
 # Required by some bot modules
 urllib3
+urlextract
 
 # Mastodon support
 Mastodon.py
