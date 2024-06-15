@@ -1,6 +1,6 @@
 {
 	"start": [
-		"*Ciao* {0}*!*"
+		"*Ciao* {0}*!*\n\nUsa /help per leggere la lista dei comandi."
 	],
 	"help": [
 		"*Non c'è nessuno qui ad aiutarti (per ora).*"
@@ -134,7 +134,7 @@
 			"*Vuoi fare sessocto con qualcuno? Rispondi ad un suo messaggio.*"
 		],
 		"bot": [
-			"*Vorrei anche io sessocto ma non ho un corpo...😥️*"
+			"*Vorrei anche io sessocto ma non ho un corpo... 😥️*"
 		],
 		"self": [
 			"*{0} fa sessocto in singleplayer 😳️*"

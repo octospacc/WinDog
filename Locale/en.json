@@ -1,6 +1,6 @@
 {
 	"start": [
-		"*Hi* {0}*!*"
+		"*Hi* {0}*!*\n\nUse /help to read a list of available commands."
 	],
 	"help": [
 		"*There's no one around to help (yet).*"

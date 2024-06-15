@@ -3,6 +3,9 @@
 # Licensed under AGPLv3 by OctoSpacc #
 # ================================== #
 
+# If you have modified the bot's code, you should set this
+ModifiedSourceUrl = ''
+
 MastodonUrl = ''
 MastodonToken = ''
 
@@ -33,14 +36,16 @@ Endpoints = {
 	#"repeat": cRepeat,
 	"wish": percenter,
 	"level": percenter,
-	#"hug": multifun,
-	#"pat": multifun,
-	#"poke": multifun,
-	#"cuddle": multifun,
-	#"floor": multifun,
-	#"hands": multifun,
-	#"sessocto": multifun,
+	"hug": multifun,
+	"pat": multifun,
+	"poke": multifun,
+	"cuddle": multifun,
+	"floor": multifun,
+	"hands": multifun,
+	"sessocto": multifun,
 	"hash": cHash,
+	#"encode": cEncode,
+	#"decode": cDecode,
 	#"time": cTime,
 	"eval": cEval,
 	"exec": cExec,
