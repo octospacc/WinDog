@@ -21,31 +21,32 @@ def TelegramHandleCmd(update:telegram.Update):
 def TelegramQueryHandle(update:telegram.Update, context:CallbackContext=None) -> None:
 	if not (update and update.message):
 		return
-	Cmd = ParseCmd(update.message.text)
-	Cmd.messageId = update.message.message_id
-	Cmd.TextPlain = Cmd.Body
-	Cmd.TextMarkdown = update.message.text_markdown_v2
-	Cmd.Text = GetWeightedText((Cmd.TextMarkdown, Cmd.TextPlain))
-	if Cmd and Cmd.Tokens[0][0] in CmdPrefixes and Cmd.Name in Endpoints:
-		Cmd.User = {
-			"Name": update.message.from_user.first_name,
-			"Tag": update.message.from_user.username,
-			"Id": f'{update.message.from_user.id}@telegram',
-		}
-		if update.message.reply_to_message:
-			Cmd.Quoted = SimpleNamespace(**{
-				"messageId": update.message.reply_to_message.message_id,
-				"Body": update.message.reply_to_message.text,
-				"TextPlain": update.message.reply_to_message.text,
-				"TextMarkdown": update.message.reply_to_message.text_markdown_v2,
-				"Text": GetWeightedText((update.message.reply_to_message.text_markdown_v2, update.message.reply_to_message.text)),
-				"User": {
-					"Name": update.message.reply_to_message.from_user.first_name,
-					"Tag": update.message.reply_to_message.from_user.username,
-					"Id": f'{update.message.reply_to_message.from_user.id}@telegram',
-				},
+	cmd = ParseCmd(update.message.text)
+	if cmd:
+		cmd.messageId = update.message.message_id
+		cmd.TextPlain = cmd.Body
+		cmd.TextMarkdown = update.message.text_markdown_v2
+		cmd.Text = GetWeightedText((cmd.TextMarkdown, cmd.TextPlain))
+		if cmd.Tokens[0][0] in CmdPrefixes and cmd.Name in Endpoints:
+			cmd.User = SimpleNamespace(**{
+				"Name": update.message.from_user.first_name,
+				"Tag": update.message.from_user.username,
+				"Id": f'{update.message.from_user.id}@telegram',
 			})
-		Endpoints[Cmd.Name]({"Event": update, "Manager": context}, Cmd)
+			if update.message.reply_to_message:
+				cmd.Quoted = SimpleNamespace(**{
+					"messageId": update.message.reply_to_message.message_id,
+					"Body": update.message.reply_to_message.text,
+					"TextPlain": update.message.reply_to_message.text,
+					"TextMarkdown": update.message.reply_to_message.text_markdown_v2,
+					"Text": GetWeightedText((update.message.reply_to_message.text_markdown_v2, update.message.reply_to_message.text)),
+					"User": SimpleNamespace(**{
+						"Name": update.message.reply_to_message.from_user.first_name,
+						"Tag": update.message.reply_to_message.from_user.username,
+						"Id": f'{update.message.reply_to_message.from_user.id}@telegram',
+					}),
+				})
+			Endpoints[cmd.Name]({"Event": update, "Manager": context}, cmd)
 	if Debug and Dumper:
 		Text = update.message.text
 		Text = (Text.replace('\n', '\\n') if Text else '')
@@ -74,8 +75,8 @@ def TelegramMain() -> None:
 		return
 	updater = telegram.ext.Updater(TelegramToken)
 	dispatcher = updater.dispatcher
-	#dispatcher.add_handler(CommandHandler('config', cConfig))
 	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramQueryHandle))
 	updater.start_polling()
 
-Platforms["Telegram"] = {"main": TelegramMain, "sender": TelegramSender, "eventClass": telegram.Update}
+RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, eventClass=telegram.Update)
+

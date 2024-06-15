@@ -1,4 +1,8 @@
 def MatrixMain() -> None:
 	pass
 
-#Platforms["Matrix"] = {"main": MatrixMain}
+def MatrixSender() -> None:
+	pass
+
+#RegisterPlatform(name="Matrix", main=MatrixMain, sender=MatrixSender)
+

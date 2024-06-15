@@ -2,18 +2,16 @@ from urlextract import URLExtract
 from urllib import parse as UrlParse
 from urllib.request import urlopen, Request
 
-def HttpGet(Url:str):
-	return urlopen(Request(Url, headers={"User-Agent": WebUserAgent}))
+def HttpGet(url:str):
+	return urlopen(Request(url, headers={"User-Agent": WebUserAgent}))
 
-# Module: Embedded
-# Rewrite a link trying to make sure we have an embed view.
-def cEmbedded(Context, Data) -> None:
-	if len(Data.Tokens) >= 2:
+def cEmbedded(context, data) -> None:
+	if len(data.Tokens) >= 2:
 		# Find links in command body
-		Text = (Data.TextMarkdown + ' ' + Data.TextPlain)
-	elif Data.Quoted and Data.Quoted.Text:
+		Text = (data.TextMarkdown + ' ' + data.TextPlain)
+	elif data.Quoted and data.Quoted.Text:
 		# Find links in quoted message
-		Text = (Data.Quoted.TextMarkdown + ' ' + Data.Quoted.TextPlain)
+		Text = (data.Quoted.TextMarkdown + ' ' + data.Quoted.TextPlain)
 	else:
 		# TODO Error message
 		return
@@ -39,17 +37,15 @@ def cEmbedded(Context, Data) -> None:
 			elif urlDomain == "vm.tiktok.com":
 				urlDomain = "vm.vxtiktok.com"
 			url = urlDomain + url[len(urlDomain):]
-		SendMsg(Context, {"TextPlain": f"{{{proto}{url}}}"})
+		SendMsg(context, {"TextPlain": f"{{{proto}{url}}}"})
 	# else TODO error message?
 
-# Module: Web
-# Provides results of a DuckDuckGo search.
-def cWeb(Context, Data) -> None:
-	if Data.Body:
+def cWeb(context, data) -> None:
+	if data.Body:
 		try:
-			QueryUrl = UrlParse.quote(Data.Body)
+			QueryUrl = UrlParse.quote(data.Body)
 			Req = HttpGet(f'https://html.duckduckgo.com/html?q={QueryUrl}')
-			Caption = f'🦆🔎 "{Data.Body}": https://duckduckgo.com/?q={QueryUrl}\n\n'
+			Caption = f'🦆🔎 "{data.Body}": https://duckduckgo.com/?q={QueryUrl}\n\n'
 			Index = 0
 			for Line in Req.read().decode().replace('\t', ' ').splitlines():
 				if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
@@ -61,32 +57,28 @@ def cWeb(Context, Data) -> None:
 						Caption += f'[{Index}] {Title} : {{{Link}}}\n\n'
 					else:
 						continue
-			SendMsg(Context, {"TextPlain": f'{Caption}...'})
+			SendMsg(context, {"TextPlain": f'{Caption}...'})
 		except Exception:
 			raise
 	else:
 		pass
 
-# Module: Translate
-# Return the received message after translating it in another language.
-def cTranslate(Context, Data) -> None:
-	if len(Data.Tokens) < 3:
+def cTranslate(context, data) -> None:
+	if len(data.Tokens) < 3:
 		return
 	try:
-		Lang = Data.Tokens[1]
+		Lang = data.Tokens[1]
 		# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
-		Result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{Lang}/{UrlParse.quote(Lang.join(Data.Body.split(Lang)[1:]))}').read())["translation"]
-		SendMsg(Context, {"TextPlain": Result})
+		Result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{Lang}/{UrlParse.quote(Lang.join(data.Body.split(Lang)[1:]))}').read())["translation"]
+		SendMsg(context, {"TextPlain": Result})
 	except Exception:
 		raise
 
-# Module: Unsplash
-# Send a picture sourced from Unsplash.
-def cUnsplash(Context, Data) -> None:
+def cUnsplash(context, data) -> None:
 	try:
-		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(Data.Body)}')
+		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(data.Body)}')
 		ImgUrl = Req.geturl().split('?')[0]
-		SendMsg(Context, {
+		SendMsg(context, {
 			"TextPlain": f'{{{ImgUrl}}}',
 			"TextMarkdown": MarkdownCode(ImgUrl, True),
 			"Media": Req.read(),
@@ -94,18 +86,18 @@ def cUnsplash(Context, Data) -> None:
 	except Exception:
 		raise
 
-# Module: Safebooru
-# Send a picture sourced from Safebooru.
-def cSafebooru(Context, Data) -> None:
+def cSafebooru(context, data) -> None:
 	ApiUrl = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
 	try:
-		if Data.Body:
-			for i in range(7):
-				ImgUrls = HttpGet(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(Data.Body)}').read().decode().split(' file_url="')[1:]
+		if data.Body:
+			for i in range(7): # retry a bunch of times if we can't find a really random result
+				ImgUrls = HttpGet(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
 				if ImgUrls:
 					break
+			if not ImgUrls: # literal search
+				ImgUrls = HttpGet(f'{ApiUrl}{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
 			if not ImgUrls:
-				ImgUrls = HttpGet(f'{ApiUrl}{UrlParse.quote(Data.Body)}').read().decode().split(' file_url="')[1:]
+				return SendMsg(context, {"Text": "Error: Could not get any result from Safebooru."})
 			ImgXml = choice(ImgUrls)
 			ImgUrl = ImgXml.split('"')[0]
 			ImgId = ImgXml.split(' id="')[1].split('"')[0]
@@ -117,13 +109,21 @@ def cSafebooru(Context, Data) -> None:
 					ImgId = ImgUrl.split('?')[-1]
 					break
 		if ImgUrl:
-			SendMsg(Context, {
+			SendMsg(context, {
 				"TextPlain": f'[{ImgId}]\n{{{ImgUrl}}}',
-				"TextMarkdown": f'\\[`{ImgId}`\\]\n{MarkdownCode(ImgUrl, True)}',
+				"TextMarkdown": (f'\\[`{ImgId}`\\]\n' + MarkdownCode(ImgUrl, True)),
 				"Media": HttpGet(ImgUrl).read(),
 			})
 		else:
 			pass
 	except Exception:
 		raise
+
+RegisterModule(name="Internet", group="Internet", summary="Tools and toys related to the Internet.", endpoints={
+	"Embedded": CreateEndpoint(["embedded"], summary="Rewrites a link, trying to bypass embed view protection.", handler=cEmbedded),
+	"Web": CreateEndpoint(["web"], summary="Provides results of a DuckDuckGo search.", handler=cWeb),
+	"Translate": CreateEndpoint(["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate),
+	"Unsplash": CreateEndpoint(["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
+	"Safebooru": CreateEndpoint(["safebooru"], summary="Sends a picture sourced from Safebooru.", handler=cSafebooru),
+})
 

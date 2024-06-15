@@ -11,7 +11,7 @@ from os import listdir
 from os.path import isfile, isdir
 from random import choice, randint
 from types import SimpleNamespace
-#from traceback import format_exc as TraceText
+from traceback import format_exc
 from bs4 import BeautifulSoup
 from html import unescape as HtmlUnescape
 from markdown import markdown
@@ -19,66 +19,60 @@ from markdown import markdown
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
 MdEscapes = '\\`*_{}[]()<>#+-.!|='
 
-Db = {"Rooms": {}, "Users": {}}
-Locale = {"Fallback": {}}
-Platforms = {}
-Commands = {}
+def Log(text:str, level:str="?") -> None:
+	print(f"[{level}] [{int(time.time())}] {text}")
 
-for dir in ("LibWinDog/Platforms", "ModWinDog"):
-	for path in listdir(f"./{dir}"):
-		path = f"./{dir}/{path}"
-		if isfile(path):
-			exec(open(path, 'r').read())
-		elif isdir(path):
-			exec(open(f"{path}/mod.py", 'r').read())
-exec(open("./LibWinDog/Config.py", 'r').read())
-
-def SetupLocale() -> None:
+def SetupLocales() -> None:
 	global Locale
-	for File in listdir('./Locale'):
-		Lang = File.split('.')[0]
+	for file in listdir('./Locale'):
+		lang = file.split('.')[0]
 		try:
-			with open(f'./Locale/{File}') as File:
-				Locale[Lang] = json.load(File)
+			with open(f'./Locale/{file}') as file:
+				Locale[lang] = json.load(file)
 		except Exception:
-			print(f'Cannot load {Lang} locale, exiting.')
+			Log(f'Cannot load {lang} locale, exiting.')
 			raise
 			exit(1)
-	for Key in Locale[DefaultLang]:
-		Locale['Fallback'][Key] = Locale[DefaultLang][Key]
-	for Lang in Locale:
-		for Key in Locale[Lang]:
-			if not Key in Locale['Fallback']:
-				Locale['Fallback'][Key] = Locale[Lang][Key]
-	def __(Key:str, Lang:str=DefaultLang):
-		Set = None
-		Key = Key.split('.')
+	for key in Locale[DefaultLang]:
+		Locale['Fallback'][key] = Locale[DefaultLang][key]
+	for lang in Locale:
+		for key in Locale[lang]:
+			if not key in Locale['Fallback']:
+				Locale['Fallback'][key] = Locale[lang][key]
+	def querier(query:str, lang:str=DefaultLang):
+		value = None
+		query = query.split('.')
 		try:
-			Set = Locale.Locale[Lang]
-			for El in Key:
-				Set = Set[El]
+			value = Locale.Locale[lang]
+			for key in query:
+				value = value[key]
 		except Exception:
-			Set = Locale.Locale['Fallback']
-			for El in Key:
-				Set = Set[El]
-		return Set
-	Locale['__'] = __
+			value = Locale.Locale['Fallback']
+			for key in query:
+				value = value[key]
+		return value
+	Locale['__'] = querier
 	Locale['Locale'] = Locale
 	Locale = SimpleNamespace(**Locale)
 
 def SetupDb() -> None:
 	global Db
 	try:
-		with open('Database.json', 'r') as File:
-			Db = json.load(File)
+		with open('Database.json', 'r') as file:
+			Db = json.load(file)
 	except Exception:
 		pass
 
-def InDict(Dict:dict, Key:str):
+def InDict(Dict:dict, Key:str) -> any:
 	if Key in Dict:
 		return Dict[Key]
 	else:
 		return None
+
+def isinstanceSafe(clazz:any, instance:any) -> bool:
+	if instance != None:
+		return isinstance(clazz, instance)
+	return False
 
 def CharEscape(String:str, Escape:str='') -> str:
 	if Escape == 'MARKDOWN':
@@ -116,18 +110,17 @@ def GetRawTokens(text:str) -> list:
 	return text.strip().replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')
 
 def ParseCmd(msg) -> dict|None:
-	name = msg.lower().split(' ')[0][1:].split('@')[0]
-	if not name:
-		return
+	name = msg.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')[0][1:].split('@')[0]
+	if not name: return
 	return SimpleNamespace(**{
-		"Name": name,
+		"Name": name.lower(),
 		"Body": name.join(msg.split(name)[1:]).strip(),
 		"Tokens": GetRawTokens(msg),
 		"User": None,
 		"Quoted": None,
 	})
 
-def GetWeightedText(texts:tuple) -> str:
+def GetWeightedText(texts:tuple) -> str|None:
 	for text in texts:
 		if text:
 			return text
@@ -136,11 +129,11 @@ def RandPercent() -> int:
 	num = randint(0,100)
 	return (f'{num}.00' if num == 100 else f'{num}.{randint(0,9)}{randint(0,9)}')
 
-def RandHexStr(Len:int) -> str:
-	Hex = ''
-	for Char in range(Len):
-		Hex += choice('0123456789abcdef')
-	return Hex
+def RandHexStr(length:int) -> str:
+	hexa = ''
+	for char in range(length):
+		hexa += choice('0123456789abcdef')
+	return hexa
 
 def SendMsg(Context, Data, Destination=None) -> None:
 	if type(Context) == dict:
@@ -159,27 +152,59 @@ def SendMsg(Context, Data, Destination=None) -> None:
 		TextMarkdown = CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain))
 	for platform in Platforms:
 		platform = Platforms[platform]
-		if ("eventClass" in platform and isinstance(Event, platform["eventClass"])) \
-		or ("managerClass" in platform and isinstance(Manager, platform["managerClass"])):
+		if isinstanceSafe(Event, InDict(platform, "eventClass")) or isinstanceSafe(Manager, InDict(platform, "managerClass")):
 			platform["sender"](Event, Manager, Data, Destination, TextPlain, TextMarkdown)
+
+def RegisterPlatform(name:str, main:callable, sender:callable, *, eventClass=None, managerClass=None) -> None:
+	Platforms[name] = {"main": main, "sender": sender, "eventClass": eventClass, "managerClass": managerClass}
+	Log(f"Registered Platform: {name}.")
+
+def RegisterModule(name:str, endpoints:dict, *, group:str=None, summary:str=None) -> None:
+	Modules[name] = {"group": group, "summary": summary, "endpoints": endpoints}
+	Log(f"Registered Module: {name}.")
+	for endpoint in endpoints:
+		endpoint = endpoints[endpoint]
+		for name in endpoint["names"]:
+			Endpoints[name] = endpoint["handler"]
+
+def CreateEndpoint(names:list[str]|tuple[str], handler:callable, *, summary:str=None) -> dict:
+	return {"names": names, "summary": summary, "handler": handler}
 
 def Main() -> None:
 	SetupDb()
-	SetupLocale()
-	TelegramMain()
-	MastodonMain()
-	#MatrixMain()
-	#for platform in Platforms:
-	#	Platforms[platform]["main"]()
+	SetupLocales()
+	for platform in Platforms:
+		Platforms[platform]["main"]()
+		Log(f"Initialized Platform: {platform}.")
+	Log('WinDog Ready!')
 	while True:
 		time.sleep(9**9)
 
 if __name__ == '__main__':
+	Log('Starting WinDog...')
+	Db = {"Rooms": {}, "Users": {}}
+	Locale = {"Fallback": {}}
+	Platforms, Modules, Endpoints = {}, {}, {}
+
+	for dir in ("LibWinDog/Platforms", "ModWinDog"):
+		for name in listdir(f"./{dir}"):
+			path = f"./{dir}/{name}"
+			if isfile(path):
+				exec(open(path, 'r').read())
+			elif isdir(path):
+				exec(open(f"{path}/{name}.py", 'r').read())
+				# TODO load locales
+				#for name in listdir(path):
+				#	if name.lower().endswith('.json'):
+				#		
+
+	Log('Loading Configuration...')
+	exec(open("./LibWinDog/Config.py", 'r').read())
 	try:
 		from Config import *
 	except Exception:
-		pass
-	print('Starting WinDog...')
+		Log(format_exc())
+
 	Main()
-	print('Closing WinDog...')
+	Log('Closing WinDog...')
 

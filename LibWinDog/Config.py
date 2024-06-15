@@ -10,24 +10,24 @@ MastodonUrl = ''
 MastodonToken = ''
 
 TelegramId = 1637713483
-TelegramToken = ''
-TelegramAdmins = [ 123456789, ]
-TelegramWhitelist = [ 123456789, ]
+TelegramToken = "0123456789:abcdefghijklmnopqrstuvwxyz123456789"
+TelegramAdmins = [ 123456789, 634314973, ]
+TelegramWhitelist = [ 123456789, 634314973, ]
 TelegramRestrict = False
 
-AdminIds = [ "123456789@telegram", "admin@activitypub@mastodon.example.com", ]
+AdminIds = [ "123456789@telegram", "634314973@telegram", "admin@activitypub@mastodon.example.com", ]
 
-DefaultLang = 'en'
+DefaultLang = "en"
 Debug = False
 Dumper = False
-CmdPrefixes = '.!/'
+CmdPrefixes = ".!/"
 # False: ASCII output; True: ANSI Output (must be escaped)
-ExecAllowed = {'date': False, 'fortune': False, 'neofetch': True, 'uptime': False}
-WebUserAgent = f'WinDog v.Staging'
+ExecAllowed = {"date": False, "fortune": False, "neofetch": True, "uptime": False}
+WebUserAgent = "WinDog v.Staging"
 
-Endpoints = {
+# TODO deprecate this in favour of new module API
+Endpoints = (Endpoints | {
 	"start": cStart,
-	"help": cHelp,
 	#"config": cConfig,
 	"source": cSource,
 	"ping": cPing,
@@ -43,7 +43,6 @@ Endpoints = {
 	"floor": multifun,
 	"hands": multifun,
 	"sessocto": multifun,
-	"hash": cHash,
 	#"encode": cEncode,
 	#"decode": cDecode,
 	#"time": cTime,
@@ -51,9 +50,4 @@ Endpoints = {
 	"exec": cExec,
 	#"format": cFormat,
 	#"frame": cFrame,
-	"embedded": cEmbedded,
-	"web": cWeb,
-	"translate": cTranslate,
-	"unsplash": cUnsplash,
-	"safebooru": cSafebooru,
-}
+})

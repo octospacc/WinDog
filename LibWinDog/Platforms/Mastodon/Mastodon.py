@@ -1,4 +1,5 @@
 import mastodon
+from bs4 import BeautifulSoup
 
 def MastodonSender(event, manager, Data, Destination, TextPlain, TextMarkdown) -> None:
 	if InDict(Data, 'Media'):
@@ -13,7 +14,6 @@ def MastodonSender(event, manager, Data, Destination, TextPlain, TextMarkdown) -
 			visibility=('direct' if event['status']['visibility'] == 'direct' else 'unlisted'),
 		)
 
-# TODO make this non-blocking or else we can't load it dynamically
 def MastodonMain() -> None:
 	if not (MastodonUrl and MastodonToken):
 		return
@@ -25,10 +25,12 @@ def MastodonMain() -> None:
 				if not Msg.split('@')[0]:
 					Msg = ' '.join('@'.join(Msg.split('@')[1:]).strip().split(' ')[1:]).strip()
 				if Msg[0] in CmdPrefixes:
-					Cmd = ParseCmd(Msg)
-					Cmd.messageId = event['status']['id']
-					if Cmd.Name in Endpoints:
-						Endpoints[Cmd.Name]({"Event": event, "Manager": Mastodon}, Cmd)
-	Mastodon.stream_user(MastodonListener())
+					cmd = ParseCmd(Msg)
+					if cmd:
+						cmd.messageId = event['status']['id']
+						if cmd.Name in Endpoints:
+							Endpoints[cmd.Name]({"Event": event, "Manager": Mastodon}, cmd)
+	Mastodon.stream_user(MastodonListener(), run_async=True)
 
-Platforms["Mastodon"] = {"main": MastodonMain, "sender": MastodonSender, "managerClass": mastodon.Mastodon}
+RegisterPlatform(name="Mastodon", main=MastodonMain, sender=MastodonSender, managerClass=mastodon.Mastodon)
+
