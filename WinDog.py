@@ -4,7 +4,7 @@
 #  Licensed under AGPLv3 by OctoSpacc  #
 # ==================================== #
 
-import json, re, time, subprocess
+import json, time
 from binascii import hexlify
 from magic import Magic
 from os import listdir
@@ -15,12 +15,16 @@ from traceback import format_exc
 from bs4 import BeautifulSoup
 from html import unescape as HtmlUnescape
 from markdown import markdown
+from LibWinDog.Database import *
 
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
 MdEscapes = '\\`*_{}[]()<>#+-.!|='
 
-def Log(text:str, level:str="?") -> None:
-	print(f"[{level}] [{int(time.time())}] {text}")
+def Log(text:str, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
+	endline = '\n'
+	if newline == False or (inline and newline == None):
+		endline = ''
+	print((text if inline else f"[{level}] [{int(time.time())}] {text}"), end=endline)
 
 def SetupLocales() -> None:
 	global Locale
@@ -55,14 +59,6 @@ def SetupLocales() -> None:
 	Locale['Locale'] = Locale
 	Locale = SimpleNamespace(**Locale)
 
-def SetupDb() -> None:
-	global Db
-	try:
-		with open('Database.json', 'r') as file:
-			Db = json.load(file)
-	except Exception:
-		pass
-
 def InDict(Dict:dict, Key:str) -> any:
 	if Key in Dict:
 		return Dict[Key]
@@ -94,7 +90,7 @@ def InferMdEscape(raw:str, plain:str) -> str:
 	return chars
 
 def MarkdownCode(text:str, block:bool) -> str:
-	return '```\n' + text.strip().replace('`', '\`') + '\n```'
+	return ('```\n' + text.strip().replace('`', '\`') + '\n```')
 
 def MdToTxt(md:str) -> str:
 	return BeautifulSoup(markdown(md), 'html.parser').get_text(' ')
@@ -135,58 +131,68 @@ def RandHexStr(length:int) -> str:
 		hexa += choice('0123456789abcdef')
 	return hexa
 
-def SendMsg(Context, Data, Destination=None) -> None:
-	if type(Context) == dict:
-		Event = Context['Event'] if 'Event' in Context else None
-		Manager = Context['Manager'] if 'Manager' in Context else None
+def OnMessageReceived() -> None:
+	pass
+
+def SendMsg(context, data, destination=None) -> None:
+	if type(context) == dict:
+		event = context['Event'] if 'Event' in context else None
+		manager = context['Manager'] if 'Manager' in context else None
 	else:
-		[Event, Manager] = [Context, Context]
-	if InDict(Data, 'TextPlain') or InDict(Data, 'TextMarkdown'):
-		TextPlain = InDict(Data, 'TextPlain')
-		TextMarkdown = InDict(Data, 'TextMarkdown')
-		if not TextPlain:
-			TextPlain = TextMarkdown
-	elif InDict(Data, 'Text'):
-		# our old system attemps to always receive Markdown and retransform when needed
-		TextPlain = MdToTxt(Data['Text'])
-		TextMarkdown = CharEscape(HtmlUnescape(Data['Text']), InferMdEscape(HtmlUnescape(Data['Text']), TextPlain))
+		[event, manager] = [context, context]
+	if InDict(data, 'TextPlain') or InDict(data, 'TextMarkdown'):
+		textPlain = InDict(data, 'TextPlain')
+		textMarkdown = InDict(data, 'TextMarkdown')
+		if not textPlain:
+			textPlain = textMarkdown
+	elif InDict(data, 'Text'):
+		# our old system attempts to always receive Markdown and retransform when needed
+		textPlain = MdToTxt(data['Text'])
+		textMarkdown = CharEscape(HtmlUnescape(data['Text']), InferMdEscape(HtmlUnescape(data['Text']), textPlain))
 	for platform in Platforms:
 		platform = Platforms[platform]
-		if isinstanceSafe(Event, InDict(platform, "eventClass")) or isinstanceSafe(Manager, InDict(platform, "managerClass")):
-			platform["sender"](Event, Manager, Data, Destination, TextPlain, TextMarkdown)
+		if isinstanceSafe(event, InDict(platform, "eventClass")) or isinstanceSafe(manager, InDict(platform, "managerClass")):
+			platform["sender"](event, manager, data, destination, textPlain, textMarkdown)
 
 def RegisterPlatform(name:str, main:callable, sender:callable, *, eventClass=None, managerClass=None) -> None:
 	Platforms[name] = {"main": main, "sender": sender, "eventClass": eventClass, "managerClass": managerClass}
-	Log(f"Registered Platform: {name}.")
+	Log(f"{name}, ", inline=True)
 
-def RegisterModule(name:str, endpoints:dict, *, group:str=None, summary:str=None) -> None:
+def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str|None=None) -> None:
 	Modules[name] = {"group": group, "summary": summary, "endpoints": endpoints}
-	Log(f"Registered Module: {name}.")
+	Log(f"{name}, ", inline=True)
 	for endpoint in endpoints:
 		endpoint = endpoints[endpoint]
 		for name in endpoint["names"]:
 			Endpoints[name] = endpoint["handler"]
 
-def CreateEndpoint(names:list[str]|tuple[str], handler:callable, *, summary:str=None) -> dict:
-	return {"names": names, "summary": summary, "handler": handler}
+def CreateEndpoint(names:list[str], handler:callable, arguments:dict[str, dict]={}, *, summary:str|None=None) -> dict:
+	return {"names": names, "summary": summary, "handler": handler, "arguments": arguments}
 
 def Main() -> None:
-	SetupDb()
+	#SetupDb()
 	SetupLocales()
+	Log(f"📨️ Initializing Platforms... ", newline=False)
 	for platform in Platforms:
-		Platforms[platform]["main"]()
-		Log(f"Initialized Platform: {platform}.")
-	Log('WinDog Ready!')
+		if Platforms[platform]["main"]():
+			Log(f"{platform}, ", inline=True)
+	Log("...Done. ✅️", inline=True, newline=True)
+	Log("🐶️ WinDog Ready!")
 	while True:
 		time.sleep(9**9)
 
 if __name__ == '__main__':
-	Log('Starting WinDog...')
-	Db = {"Rooms": {}, "Users": {}}
+	Log("🌞️ WinDog Starting...")
+	#Db = {"Rooms": {}, "Users": {}}
 	Locale = {"Fallback": {}}
-	Platforms, Modules, Endpoints = {}, {}, {}
+	Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
 
 	for dir in ("LibWinDog/Platforms", "ModWinDog"):
+		match dir:
+			case "LibWinDog/Platforms":
+				Log("📩️ Loading Platforms... ", newline=False)
+			case "ModWinDog":
+				Log("🔩️ Loading Modules... ", newline=False)
 		for name in listdir(f"./{dir}"):
 			path = f"./{dir}/{name}"
 			if isfile(path):
@@ -197,14 +203,16 @@ if __name__ == '__main__':
 				#for name in listdir(path):
 				#	if name.lower().endswith('.json'):
 				#		
+		Log("...Done. ✅️", inline=True, newline=True)
 
-	Log('Loading Configuration...')
+	Log("💽️ Loading Configuration", newline=False)
 	exec(open("./LibWinDog/Config.py", 'r').read())
 	try:
 		from Config import *
 	except Exception:
 		Log(format_exc())
+	Log("...Done. ✅️", inline=True, newline=True)
 
 	Main()
-	Log('Closing WinDog...')
+	Log("🌚️ WinDog Stopping...")
 

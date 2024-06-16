@@ -1,26 +1,28 @@
+# ================================== #
+# WinDog multi-purpose chatbot       #
+# Licensed under AGPLv3 by OctoSpacc #
+# ================================== #
+
+TelegramToken = None
+
 import telegram, telegram.ext
 from telegram import ForceReply, Bot
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 
-def TelegramCmdAllowed(update:telegram.Update) -> bool:
-	if not TelegramRestrict:
-		return True
-	if TelegramRestrict.lower() == 'whitelist':
-		if update.message.chat.id in TelegramWhitelist:
-			return True
-	return False
-
-def TelegramHandleCmd(update:telegram.Update):
-	TelegramQueryHandle(update)
-	if TelegramCmdAllowed(update):
-		return ParseCmd(update.message.text)
-	else:
+def TelegramMain() -> bool:
+	if not TelegramToken:
 		return False
+	updater = telegram.ext.Updater(TelegramToken)
+	dispatcher = updater.dispatcher
+	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramHandler))
+	updater.start_polling()
+	return True
 
-def TelegramQueryHandle(update:telegram.Update, context:CallbackContext=None) -> None:
+def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> None:
 	if not (update and update.message):
 		return
+	OnMessageReceived()
 	cmd = ParseCmd(update.message.text)
 	if cmd:
 		cmd.messageId = update.message.message_id
@@ -69,14 +71,6 @@ def TelegramSender(event, manager, Data, Destination, TextPlain, TextMarkdown) -
 			event.message.reply_markdown_v2(TextMarkdown, reply_to_message_id=replyToId)
 		elif TextPlain:
 			event.message.reply_text(TextPlain, reply_to_message_id=replyToId)
-
-def TelegramMain() -> None:
-	if not TelegramToken:
-		return
-	updater = telegram.ext.Updater(TelegramToken)
-	dispatcher = updater.dispatcher
-	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramQueryHandle))
-	updater.start_polling()
 
 RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, eventClass=telegram.Update)
 

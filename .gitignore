@@ -1,4 +1,5 @@
-Database.json
-Dump.txt
 /Config.py
+/Database.sqlite
+/Dump.txt
+/session.txt
 *.pyc

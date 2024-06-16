@@ -1,3 +1,8 @@
+# ================================== #
+# WinDog multi-purpose chatbot       #
+# Licensed under AGPLv3 by OctoSpacc #
+# ================================== #
+
 from urlextract import URLExtract
 from urllib import parse as UrlParse
 from urllib.request import urlopen, Request
@@ -63,14 +68,20 @@ def cWeb(context, data) -> None:
 	else:
 		pass
 
+def cImages(context, data) -> None:
+	pass
+
+def cNews(context, data) -> None:
+	pass
+
 def cTranslate(context, data) -> None:
 	if len(data.Tokens) < 3:
 		return
 	try:
-		Lang = data.Tokens[1]
+		toLang = data.Tokens[1]
 		# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
-		Result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{Lang}/{UrlParse.quote(Lang.join(data.Body.split(Lang)[1:]))}').read())["translation"]
-		SendMsg(context, {"TextPlain": Result})
+		result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{toLang}/{UrlParse.quote(toLang.join(data.Body.split(toLang)[1:]))}').read())
+		SendMsg(context, {"TextPlain": f"[{result['info']['detectedSource']} (auto) -> {toLang}]\n\n{result['translation']}"})
 	except Exception:
 		raise
 
@@ -119,7 +130,7 @@ def cSafebooru(context, data) -> None:
 	except Exception:
 		raise
 
-RegisterModule(name="Internet", group="Internet", summary="Tools and toys related to the Internet.", endpoints={
+RegisterModule(name="Internet", summary="Tools and toys related to the Internet.", endpoints={
 	"Embedded": CreateEndpoint(["embedded"], summary="Rewrites a link, trying to bypass embed view protection.", handler=cEmbedded),
 	"Web": CreateEndpoint(["web"], summary="Provides results of a DuckDuckGo search.", handler=cWeb),
 	"Translate": CreateEndpoint(["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate),

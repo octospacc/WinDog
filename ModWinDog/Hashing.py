@@ -1,3 +1,8 @@
+# ================================== #
+# WinDog multi-purpose chatbot       #
+# Licensed under AGPLv3 by OctoSpacc #
+# ================================== #
+
 import hashlib
 
 def cHash(context, data) -> None:

@@ -3,21 +3,19 @@
 #  Licensed under AGPLv3 by OctoSpacc  #
 # ==================================== #
 
-# Module: Percenter
-# Provides fun trough percentage-based toys.
-def percenter(context, data) -> None:
+import re, subprocess
+
+def mPercenter(context, data) -> None:
 	SendMsg(context, {"Text": choice(Locale.__(f'{data.Name}.{"done" if data.Body else "empty"}')).format(
 		Cmd=data.Tokens[0], Percent=RandPercent(), Thing=data.Body)})
 
-# Module: Multifun
-# Provides fun trough preprogrammed-text-based toys.
-def multifun(context, data) -> None:
+def mMultifun(context, data) -> None:
 	cmdkey = data.Name
 	replyToId = None
 	if data.Quoted:
 		replyFromUid = data.Quoted.User.Id
 		# TODO work on all platforms for the bot id
-		if int(replyFromUid.split('@')[0]) == int(TelegramId) and 'bot' in Locale.__(cmdkey):
+		if replyFromUid.split('@')[0] == TelegramToken.split(':')[0] and 'bot' in Locale.__(cmdkey):
 			Text = choice(Locale.__(f'{cmdkey}.bot'))
 		elif replyFromUid == data.User.Id and 'self' in Locale.__(cmdkey):
 			Text = choice(Locale.__(f'{cmdkey}.self')).format(data.User.Name)
@@ -30,13 +28,9 @@ def multifun(context, data) -> None:
 			Text = choice(Locale.__(f'{cmdkey}.empty'))
 	SendMsg(context, {"Text": Text, "ReplyTo": replyToId})
 
-# Module: Start
-# Salutes the user, hinting that the bot is working and providing basic quick help.
 def cStart(context, data) -> None:
 	SendMsg(context, {"Text": choice(Locale.__('start')).format(data.User.Name)})
 
-# Module: Source
-# Provides a copy of the bot source codes and/or instructions on how to get it.
 def cSource(context, data=None) -> None:
 	SendMsg(context, {"TextPlain": ("""\
 * Original Code: {https://gitlab.com/octospacc/WinDog}
@@ -52,13 +46,9 @@ def cSource(context, data=None) -> None:
 #	# ... language: en, it, ...
 #	# ... userdata: import, export, delete
 
-# Module: Ping
-# Responds pong, useful for testing messaging latency.
 def cPing(context, data=None) -> None:
 	SendMsg(context, {"Text": "*Pong!*"})
 
-# Module: Echo
-# Responds back with the original text of the received message.
 def cEcho(context, data) -> None:
 	if data.Body:
 		prefix = "🗣️ "
@@ -75,8 +65,6 @@ def cEcho(context, data) -> None:
 	else:
 		SendMsg(context, {"Text": choice(Locale.__('echo.empty'))})
 
-# Module: Broadcast
-# Sends an admin message over to another destination
 def cBroadcast(context, data) -> None:
 	if data.User.Id not in AdminIds:
 		return SendMsg(context, {"Text": choice(Locale.__('eval'))})
@@ -92,13 +80,9 @@ def cBroadcast(context, data) -> None:
 #		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),
 #		reply_to_message_id=update.message.message_id)
 
-# Module: Eval
-# Execute a Python command (or safe literal operation) in the current context. Currently not implemented.
 def cEval(context, data=None) -> None:
 	SendMsg(context, {"Text": choice(Locale.__('eval'))})
 
-# Module: Exec
-# Execute a system command from the allowed ones and return stdout/stderr.
 def cExec(context, data) -> None:
 	if len(data.Tokens) >= 2 and data.Tokens[1].lower() in ExecAllowed:
 		cmd = data.Tokens[1].lower()
@@ -113,13 +97,18 @@ def cExec(context, data) -> None:
 	else:
 		SendMsg(context, {"Text": choice(Locale.__('eval'))})
 
-# Module: Format
-# Reformat text using an handful of rules. Currently not implemented.
-def cFormat(context, data=None) -> None:
-	pass
-
-# Module: Frame
-# Frame someone's message into a platform-styled image. Currently not implemented.
-def cFrame(context, data=None) -> None:
-	pass
+RegisterModule(name="Misc", endpoints={
+	"Percenter": CreateEndpoint(["wish", "level"], summary="Provides fun trough percentage-based toys.", handler=mPercenter),
+	"Multifun": CreateEndpoint(["hug", "pat", "poke", "cuddle", "hands", "floor", "sessocto"], summary="Provides fun trough preprogrammed-text-based toys.", handler=mMultifun),
+	"Start": CreateEndpoint(["start"], summary="Salutes the user, hinting that the bot is working and providing basic quick help.", handler=cStart),
+	"Source": CreateEndpoint(["source"], summary="Provides a copy of the bot source codes and/or instructions on how to get it.", handler=cSource),
+	"Ping": CreateEndpoint(["ping"], summary="Responds pong, useful for testing messaging latency.", handler=cPing),
+	"Echo": CreateEndpoint(["echo"], summary="Responds back with the original text of the received message.", handler=cEcho),
+	"Broadcast": CreateEndpoint(["broadcast"], summary="Sends an admin message over to any chat destination.", handler=cBroadcast),
+	"Eval": CreateEndpoint(["eval"], summary="Execute a Python command (or safe literal operation) in the current context. Currently not implemented.", handler=cEval),
+	"Exec": CreateEndpoint(["exec"], summary="Execute a system command from the allowed ones and return stdout+stderr.", handler=cExec),
+	#"Format": CreateEndpoint(["format"], summary="Reformat text using an handful of rules. Not yet implemented.", handler=cFormat),
+	#"Frame": CreateEndpoint(["frame"], summary="Frame someone's message into a platform-styled image. Not yet implemented.", handler=cFrame),
+	#"Repeat": CreateEndpoint(["repeat"], summary="I had this planned but I don't remember what this should have done. Not yet implemented.", handler=cRepeat),
+})
 
