@@ -15,8 +15,8 @@ In case you want to run your own instance:
 
 1. `git clone --depth 1 https://gitlab.com/octospacc/WinDog && cd ./WinDog` to get the code.
 2. `find -type f -name requirements.txt -exec python3 -m pip install -U -r {} \;` to install the full package of dependencies.
-3. `cp ./LibWinDog/Config.py ./` and, in the new file, edit essential fields (like user credentials), uncommenting them where needed, then delete the unmodified fields.
-4. `sh ./StartWinDog.sh` to start the bot every time.
+3. `sh ./StartWinDog.sh` to start the bot every time.
+    * The first time it runs, it will generate a `Config.py` file, where you should edit essential fields (like user credentials), uncommenting them where needed, then delete the unmodified fields. Restart the program to load the updated configuration.
 
 All my source code mirrors for the bot:
 

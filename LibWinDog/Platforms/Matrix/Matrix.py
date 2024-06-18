@@ -3,6 +3,14 @@
 # Licensed under AGPLv3 by OctoSpacc #
 # ================================== #
 
+""" # windog config start #
+
+# MatrixUrl = "https://matrix.example.com"
+# MatrixUsername = "username"
+# MatrixPassword = "hunter2"
+
+# end windog config # """
+
 MatrixUrl, MatrixUsername, MatrixPassword = None, None, None
 
 import nio
@@ -19,12 +27,10 @@ def MatrixMain() -> bool:
 		pass
 		#print(message)
 		#match = MatrixBotLib.MessageMatch(room, message, MatrixBot)
-		#OnMessageReceived()
+		#OnMessageParsed()
 		#if match.is_not_from_this_bot() and match.command("windogtest"):
 		#	pass #await MatrixBot.api.send_text_message(room.room_id, " ".join(arg for arg in match.args()))
-	def runMatrixBot() -> None:
-		MatrixBot.run()
-	Thread(target=runMatrixBot).start()
+	Thread(target=lambda:MatrixBot.run()).start()
 	return True
 
 def MatrixSender() -> None:

@@ -3,12 +3,18 @@
 # Licensed under AGPLv3 by OctoSpacc #
 # ================================== #
 
+""" # windog config start # """
+
+MicrosoftBingSettings = {}
+
+""" # end windog config # """
+
 from urlextract import URLExtract
 from urllib import parse as UrlParse
 from urllib.request import urlopen, Request
 
-def HttpGet(url:str):
-	return urlopen(Request(url, headers={"User-Agent": WebUserAgent}))
+def HttpReq(url:str, method:str|None=None, *, body:bytes=None, headers:dict[str, str]={"User-Agent": WebUserAgent}):
+	return urlopen(Request(url, method=method, data=body, headers=headers))
 
 def cEmbedded(context, data) -> None:
 	if len(data.Tokens) >= 2:
@@ -49,7 +55,7 @@ def cWeb(context, data) -> None:
 	if data.Body:
 		try:
 			QueryUrl = UrlParse.quote(data.Body)
-			Req = HttpGet(f'https://html.duckduckgo.com/html?q={QueryUrl}')
+			Req = HttpReq(f'https://html.duckduckgo.com/html?q={QueryUrl}')
 			Caption = f'🦆🔎 "{data.Body}": https://duckduckgo.com/?q={QueryUrl}\n\n'
 			Index = 0
 			for Line in Req.read().decode().replace('\t', ' ').splitlines():
@@ -80,14 +86,14 @@ def cTranslate(context, data) -> None:
 	try:
 		toLang = data.Tokens[1]
 		# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
-		result = json.loads(HttpGet(f'https://lingva.ml/api/v1/auto/{toLang}/{UrlParse.quote(toLang.join(data.Body.split(toLang)[1:]))}').read())
+		result = json.loads(HttpReq(f'https://lingva.ml/api/v1/auto/{toLang}/{UrlParse.quote(toLang.join(data.Body.split(toLang)[1:]))}').read())
 		SendMsg(context, {"TextPlain": f"[{result['info']['detectedSource']} (auto) -> {toLang}]\n\n{result['translation']}"})
 	except Exception:
 		raise
 
 def cUnsplash(context, data) -> None:
 	try:
-		Req = HttpGet(f'https://source.unsplash.com/random/?{UrlParse.quote(data.Body)}')
+		Req = HttpReq(f'https://source.unsplash.com/random/?{UrlParse.quote(data.Body)}')
 		ImgUrl = Req.geturl().split('?')[0]
 		SendMsg(context, {
 			"TextPlain": f'{{{ImgUrl}}}',
@@ -102,18 +108,18 @@ def cSafebooru(context, data) -> None:
 	try:
 		if data.Body:
 			for i in range(7): # retry a bunch of times if we can't find a really random result
-				ImgUrls = HttpGet(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
+				ImgUrls = HttpReq(f'{ApiUrl}md5:{RandHexStr(3)}%20{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
 				if ImgUrls:
 					break
 			if not ImgUrls: # literal search
-				ImgUrls = HttpGet(f'{ApiUrl}{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
+				ImgUrls = HttpReq(f'{ApiUrl}{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
 			if not ImgUrls:
 				return SendMsg(context, {"Text": "Error: Could not get any result from Safebooru."})
 			ImgXml = choice(ImgUrls)
 			ImgUrl = ImgXml.split('"')[0]
 			ImgId = ImgXml.split(' id="')[1].split('"')[0]
 		else:
-			HtmlReq = HttpGet(HttpGet('https://safebooru.org/index.php?page=post&s=random').geturl())
+			HtmlReq = HttpReq(HttpReq('https://safebooru.org/index.php?page=post&s=random').geturl())
 			for Line in HtmlReq.read().decode().replace('\t', ' ').splitlines():
 				if '<img ' in Line and ' id="image" ' in Line and ' src="':
 					ImgUrl = Line.split(' src="')[1].split('"')[0]
@@ -123,12 +129,45 @@ def cSafebooru(context, data) -> None:
 			SendMsg(context, {
 				"TextPlain": f'[{ImgId}]\n{{{ImgUrl}}}',
 				"TextMarkdown": (f'\\[`{ImgId}`\\]\n' + MarkdownCode(ImgUrl, True)),
-				"Media": HttpGet(ImgUrl).read(),
+				"media": {"url": ImgUrl}, #, "bytes": HttpReq(ImgUrl).read()},
 			})
 		else:
 			pass
-	except Exception:
+	except Exception as error:
 		raise
+
+def cDalle(context, data) -> None:
+	if not data.Body:
+		return SendMsg(context, {"Text": "Please tell me what to generate."})
+	image_filter = "&quot;https://th.bing.com/th/id/"
+	try:
+		retry_index = 3
+		result_list = ""
+		result_id = HttpReq(
+			f"https://www.bing.com/images/create?q={UrlParse.quote(data.Body)}&rt=3&FORM=GENCRE",#"4&FORM=GENCRE",
+			body=f"q={UrlParse.urlencode({'q': data.Body})}&qs=ds".encode(),
+			headers=MicrosoftBingSettings).read().decode()
+		print(result_id)
+		result_id = result_id.split('&amp;id=')[1].split('&amp;')[0]
+		results_url = f"https://www.bing.com/images/create/-/{result_id}?FORM=GENCRE"
+		SendMsg(context, {"Text": "Request sent, please wait..."})
+		while retry_index < 12 and image_filter not in result_list:
+			result_list = HttpReq(results_url, headers={"User-Agent": MicrosoftBingSettings["User-Agent"]}).read().decode()
+			time.sleep(1.25 * retry_index)
+			retry_index += 1
+		if image_filter in result_list:
+			SendMsg(context, {
+				"TextPlain": f"{{{results_url}}}",
+				"TextMarkdown": MarkdownCode(results_url, True),
+				"Media": HttpReq(
+					result_list.split(image_filter)[1].split('\\&quot;')[0],
+					headers={"User-Agent": MicrosoftBingSettings["User-Agent"]}).read(),
+			})
+		else:
+			raise Exception("Something went wrong.")
+	except Exception as error:
+		Log(error)
+		SendMsg(context, {"TextPlain": error})
 
 RegisterModule(name="Internet", summary="Tools and toys related to the Internet.", endpoints={
 	"Embedded": CreateEndpoint(["embedded"], summary="Rewrites a link, trying to bypass embed view protection.", handler=cEmbedded),
@@ -136,5 +175,6 @@ RegisterModule(name="Internet", summary="Tools and toys related to the Internet.
 	"Translate": CreateEndpoint(["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate),
 	"Unsplash": CreateEndpoint(["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
 	"Safebooru": CreateEndpoint(["safebooru"], summary="Sends a picture sourced from Safebooru.", handler=cSafebooru),
+	#"DALL-E": CreateEndpoint(["dalle"], summary="Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.", handler=cDalle),
 })
 

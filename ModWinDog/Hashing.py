@@ -6,17 +6,19 @@
 import hashlib
 
 def cHash(context, data) -> None:
-	if len(data.Tokens) >= 3 and data.Tokens[1] in hashlib.algorithms_available:
-		Alg = data.Tokens[1]
-		Hash = hashlib.new(Alg, Alg.join(data.Body.split(Alg)[1:]).strip().encode()).hexdigest()
+	algorithm = data.command.arguments["algorithm"]
+	if data.command.body and algorithm in hashlib.algorithms_available:
+		hashed = hashlib.new(algorithm, algorithm.join(data.Body.split(algorithm)[1:]).strip().encode()).hexdigest()
 		SendMsg(context, {
-			"TextPlain": Hash,
-			"TextMarkdown": MarkdownCode(Hash, True),
+			"TextPlain": hashed,
+			"TextMarkdown": MarkdownCode(hashed, True),
 		})
 	else:
-		SendMsg(context, {"Text": choice(Locale.__('hash.usage')).format(data.Tokens[0], hashlib.algorithms_available)})
+		SendMsg(context, {"Text": choice(Locale.__('hash.usage')).format(data.command.tokens[0], hashlib.algorithms_available)})
 
 RegisterModule(name="Hashing", group="Geek", summary="Functions for hashing of textual content.", endpoints={
-	"Hash": CreateEndpoint(["hash"], summary="Responds with the hash-sum of a message received.", handler=cHash),
+	"Hash": CreateEndpoint(names=["hash"], summary="Responds with the hash-sum of a message received.", handler=cHash, arguments={
+		"algorithm": True,
+	}),
 })
 

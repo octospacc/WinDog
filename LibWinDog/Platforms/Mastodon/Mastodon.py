@@ -3,6 +3,13 @@
 # Licensed under AGPLv3 by OctoSpacc #
 # ================================== #
 
+""" # windog config start #
+
+# MastodonUrl = "https://mastodon.example.com"
+# MastodonToken = ""
+
+# end windog config # """
+
 MastodonUrl, MastodonToken = None, None
 
 import mastodon
@@ -15,7 +22,7 @@ def MastodonMain() -> bool:
 	class MastodonListener(mastodon.StreamListener):
 		def on_notification(self, event):
 			if event['type'] == 'mention':
-				OnMessageReceived()
+				#OnMessageParsed()
 				message = BeautifulSoup(event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
 				if not message.split('@')[0]:
 					message = ' '.join('@'.join(message.split('@')[1:]).strip().split(' ')[1:]).strip()
@@ -24,7 +31,7 @@ def MastodonMain() -> bool:
 					if command:
 						command.messageId = event['status']['id']
 						if command.Name in Endpoints:
-							Endpoints[command.Name]({"Event": event, "Manager": Mastodon}, command)
+							Endpoints[command.Name]["handler"]({"Event": event, "Manager": Mastodon}, command)
 	Mastodon.stream_user(MastodonListener(), run_async=True)
 	return True
 

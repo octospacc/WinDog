@@ -6,6 +6,7 @@
 
 import json, time
 from binascii import hexlify
+from glob import glob
 from magic import Magic
 from os import listdir
 from os.path import isfile, isdir
@@ -15,6 +16,7 @@ from traceback import format_exc
 from bs4 import BeautifulSoup
 from html import unescape as HtmlUnescape
 from markdown import markdown
+from LibWinDog.Config import *
 from LibWinDog.Database import *
 
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
@@ -24,7 +26,11 @@ def Log(text:str, level:str="?", *, newline:bool|None=None, inline:bool=False) -
 	endline = '\n'
 	if newline == False or (inline and newline == None):
 		endline = ''
-	print((text if inline else f"[{level}] [{int(time.time())}] {text}"), end=endline)
+	text = (text if inline else f"[{level}] [{time.ctime()}] [{int(time.time())}] {text}")
+	if LogToConsole:
+		print(text, end=endline)
+	if LogToFile:
+		open("./Log.txt", 'a').write(text + endline)
 
 def SetupLocales() -> None:
 	global Locale
@@ -59,11 +65,14 @@ def SetupLocales() -> None:
 	Locale['Locale'] = Locale
 	Locale = SimpleNamespace(**Locale)
 
-def InDict(Dict:dict, Key:str) -> any:
-	if Key in Dict:
-		return Dict[Key]
-	else:
-		return None
+def SureArray(array:any) -> list|tuple:
+	return (array if type(array) in [list, tuple] else [array])
+
+def InDict(dikt:dict, key:str, /) -> any:
+	return (dikt[key] if key in dikt else None)
+
+def DictGet(dikt:dict, key:str, /) -> any:
+	return (dikt[key] if key in dikt else None)
 
 def isinstanceSafe(clazz:any, instance:any) -> bool:
 	if instance != None:
@@ -105,9 +114,12 @@ def HtmlEscapeFull(Raw:str) -> str:
 def GetRawTokens(text:str) -> list:
 	return text.strip().replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')
 
-def ParseCmd(msg) -> dict|None:
+def ParseCmd(msg) -> SimpleNamespace|None:
+	#if not len(msg) or msg[1] not in CmdPrefixes:
+	#	return
 	name = msg.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')[0][1:].split('@')[0]
-	if not name: return
+	#if not name:
+	#	return
 	return SimpleNamespace(**{
 		"Name": name.lower(),
 		"Body": name.join(msg.split(name)[1:]).strip(),
@@ -116,7 +128,7 @@ def ParseCmd(msg) -> dict|None:
 		"Quoted": None,
 	})
 
-def GetWeightedText(texts:tuple) -> str|None:
+def GetWeightedText(*texts) -> str|None:
 	for text in texts:
 		if text:
 			return text
@@ -131,10 +143,42 @@ def RandHexStr(length:int) -> str:
 		hexa += choice('0123456789abcdef')
 	return hexa
 
-def OnMessageReceived() -> None:
-	pass
+def ParseCommand(text:str) -> SimpleNamespace|None:
+	text = text.strip()
+	try: # ensure command is not empty
+		if not (text[0] in CmdPrefixes and text[1:].strip()):
+			return
+	except IndexError:
+		return
+	command = SimpleNamespace(**{})
+	command.tokens = text.replace("\r", " ").replace("\n", " ").replace("\t", " ").replace("  ", " ").replace("  ", " ").split(" ")
+	command.name = command.tokens[0][1:].lower()
+	command.body = text[len(command.tokens[0]):].strip()
+	if (endpoint_arguments := Endpoints[command.name]["arguments"]):
+		command.arguments = {}
+		# TODO differences between required (True) and optional (False) args
+		for index, key in enumerate(endpoint_arguments):
+			try:
+				value = command.tokens[index + 1]
+				command.body = command.body[len(value):].strip()
+			except IndexError:
+				value = None
+			command.arguments[key] = value
+	return command
+
+def OnMessageParsed(data:SimpleNamespace) -> None:
+	if Debug and (DumpToFile or DumpToConsole):
+		text = (data.text_auto.replace('\n', '\\n') if data.text_auto else '')
+		text = f"[{int(time.time())}] [{time.ctime()}] [{data.room_id}] [{data.message_id}] [{data.user.id}] {text}"
+		if DumpToConsole:
+			print(text)
+		if DumpToFile:
+			open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Dump.txt"), 'a').write(text + '\n')
 
 def SendMsg(context, data, destination=None) -> None:
+	return SendMessage(context, data, destination)
+
+def SendMessage(context, data, destination=None) -> None:
 	if type(context) == dict:
 		event = context['Event'] if 'Event' in context else None
 		manager = context['Manager'] if 'Manager' in context else None
@@ -154,6 +198,9 @@ def SendMsg(context, data, destination=None) -> None:
 		if isinstanceSafe(event, InDict(platform, "eventClass")) or isinstanceSafe(manager, InDict(platform, "managerClass")):
 			platform["sender"](event, manager, data, destination, textPlain, textMarkdown)
 
+def SendReaction() -> None:
+	pass
+
 def RegisterPlatform(name:str, main:callable, sender:callable, *, eventClass=None, managerClass=None) -> None:
 	Platforms[name] = {"main": main, "sender": sender, "eventClass": eventClass, "managerClass": managerClass}
 	Log(f"{name}, ", inline=True)
@@ -164,9 +211,10 @@ def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str
 	for endpoint in endpoints:
 		endpoint = endpoints[endpoint]
 		for name in endpoint["names"]:
-			Endpoints[name] = endpoint["handler"]
+			Endpoints[name] = endpoint
 
-def CreateEndpoint(names:list[str], handler:callable, arguments:dict[str, dict]={}, *, summary:str|None=None) -> dict:
+# TODO register endpoint with this instead of RegisterModule
+def CreateEndpoint(names:list[str], handler:callable, arguments:dict[str, bool]|None=None, *, summary:str|None=None) -> dict:
 	return {"names": names, "summary": summary, "handler": handler, "arguments": arguments}
 
 def Main() -> None:
@@ -187,31 +235,51 @@ if __name__ == '__main__':
 	Locale = {"Fallback": {}}
 	Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
 
-	for dir in ("LibWinDog/Platforms", "ModWinDog"):
-		match dir:
+	for folder in ("LibWinDog/Platforms", "ModWinDog"):
+		match folder:
 			case "LibWinDog/Platforms":
 				Log("📩️ Loading Platforms... ", newline=False)
 			case "ModWinDog":
 				Log("🔩️ Loading Modules... ", newline=False)
-		for name in listdir(f"./{dir}"):
-			path = f"./{dir}/{name}"
+		for name in listdir(f"./{folder}"):
+			path = f"./{folder}/{name}"
 			if isfile(path):
 				exec(open(path, 'r').read())
 			elif isdir(path):
-				exec(open(f"{path}/{name}.py", 'r').read())
+				files = listdir(path)
+				if f"{name}.py" in files:
+					files.remove(f"{name}.py")
+					exec(open(f"{path}/{name}.py", 'r').read())
+				for file in files:
+					if file.endswith(".py"):
+						exec(open(f"{path}/{name}.py", 'r').read())
 				# TODO load locales
 				#for name in listdir(path):
 				#	if name.lower().endswith('.json'):
 				#		
 		Log("...Done. ✅️", inline=True, newline=True)
 
-	Log("💽️ Loading Configuration", newline=False)
-	exec(open("./LibWinDog/Config.py", 'r').read())
-	try:
+	Log("💽️ Loading Configuration... ", newline=False)
+	#exec(open("./LibWinDog/Config.py", 'r').read())
+	from Config import *
+	if isfile("./Config.py"):
 		from Config import *
-	except Exception:
-		Log(format_exc())
-	Log("...Done. ✅️", inline=True, newline=True)
+	else:
+		Log("💾️ No configuration found! Generating and writing to `./Config.py`... ", inline=True)
+		with open("./Config.py", 'w') as configFile:
+			opening = '# windog config start #'
+			closing = '# end windog config #'
+			for folder in ("LibWinDog", "ModWinDog"):
+				for file in glob(f"./{folder}/**/*.py", recursive=True):
+					try:
+						name = '/'.join(file.split('/')[1:-1])
+						heading = f"# ==={'=' * len(name)}=== #"
+						source = open(file, 'r').read().replace(f"''' {opening}", f'""" {opening}').replace(f"{closing} '''", f'{closing} """')
+						content = '\n'.join(content.split(f'""" {opening}')[1].split(f'{closing} """')[0].split('\n')[1:-1])
+						configFile.write(f"{heading}\n# 🔽️ {name} 🔽️ #\n{heading}\n{content}\n\n")
+					except IndexError:
+						pass
+	Log("Done. ✅️", inline=True, newline=True)
 
 	Main()
 	Log("🌚️ WinDog Stopping...")
