@@ -9,94 +9,120 @@ SeleniumDriversLimit = 2
 
 """ # end windog config # """
 
-currentSeleniumDrivers = 0
+currentSeleniumDrivers = []
 
-#from selenium import webdriver
-#from selenium.webdriver import Chrome
-#from selenium.webdriver.common.by import By
 from seleniumbase import Driver
 
-def getSelenium() -> Driver:
-	global currentSeleniumDrivers
-	if currentSeleniumDrivers >= SeleniumDriversLimit:
+# TODO implement some kind of timeout after a closure of a browser, since otherwise we get in a buggy state sometimes?
+
+def getSelenium() -> tuple[int, Driver]|bool:
+	if len(currentSeleniumDrivers) == SeleniumDriversLimit:
 		return False
-	#options = webdriver.ChromeOptions()
-	#options.add_argument("headless=new")
-	#options.add_argument("user-data-dir=./Selenium-WinDog")
-	#seleniumDriver = Chrome(options=options)
-	currentSeleniumDrivers += 1
-	return Driver(uc=True, headless2=True, user_data_dir=f"./Selenium-WinDog/{currentSeleniumDrivers}")
+	for index in range(1, (SeleniumDriversLimit + 1)):
+		if index not in currentSeleniumDrivers:
+			currentSeleniumDrivers.append(index)
+			break
+	return (index, Driver(uc=True, headless2=True, user_data_dir=f"./Selenium-WinDog/{index}"))
 
-def closeSelenium(driver:Driver) -> None:
-	global currentSeleniumDrivers
-	try:
-		driver.close()
-		driver.quit()
-	except:
-		Log(format_exc())
-	if currentSeleniumDrivers > 0:
-		currentSeleniumDrivers -= 1
+def closeSelenium(index:int, driver:Driver) -> None:
+	if driver:
+		try:
+			driver.close()
+			driver.quit()
+		except:
+			Log(format_exc())
+	if index:
+		currentSeleniumDrivers.remove(index)
 
-def cDalleSelenium(context, data) -> None:
-	if not data.Body:
-		return SendMsg(context, {"Text": "Please tell me what to generate."})
-	#if not seleniumDriver:
-	#	SendMsg(context, {"Text": "Initializing Selenium, please wait..."})
-	#	loadSeleniumDriver()
+def cDalleSelenium(context:EventContext, data:InputMessageData) -> None:
+	warning_text = "has been blocked by Microsoft because it violates their content policy. Further attempts might lead to a ban on your profile. Please review the Code of Conduct for Image Creator in this picture or at https://www.bing.com/new/termsofuseimagecreator#content-policy."
+	prompt = data.command.body
+	if not prompt:
+		return SendMessage(context, {"Text": "Please tell me what to generate."})
+	driver_index, driver = None, None
 	try:
 		driver = getSelenium()
 		if not driver:
-			return SendMsg(context, {"Text": "Couldn't access a web scraping VM as they are all busy. Please try again later."})
+			return SendMessage(context, {"Text": "Couldn't access a web scraping VM as they are all busy. Please try again later."})
+		driver_index, driver = driver
 		driver.get("https://www.bing.com/images/create/")
 		driver.refresh()
-		#retry_index = 3
-		#while retry_index < 12:
-		#	time.sleep(retry_index := retry_index + 1)
-		#	try:
-		#seleniumDriver.find_element(By.CSS_SELECTOR, 'form input[name="q"]').send_keys(data.Body)
-		#seleniumDriver.find_element(By.CSS_SELECTOR, 'form a[role="button"]').submit()
-		driver.find_element('form input[name="q"]').send_keys(data.Body)
+		driver.find_element('form input[name="q"]').send_keys(prompt)
 		driver.find_element('form a[role="button"]').submit()
 		try:
-			driver.find_element('img[alt="Content warning"]')
-			SendMsg(context, {"Text": "This prompt has been blocked by Microsoft because it violates their content policy. Further attempts might lead to a ban on your profile."})
-			closeSelenium(driver)
-			return
+			driver.find_element('img.gil_err_img[alt="Content warning"]')
+			SendMessage(context, {"Text": f"Content warning: This prompt {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read()}})
+			return closeSelenium(driver_index, driver)
 		except Exception: # warning element was not found, we should be good
 			pass
-		SendMsg(context, {"Text": "Request sent successfully, please wait..."})
-		#	except Exception:
-		#		pass
+		SendMessage(context, {"Text": "Request sent successfully, please wait..."})
 		retry_index = 3
 		while retry_index < 12:
-			# note that sometimes generation fails and we will never get any image!
-			#try:
+			# note that sometimes generation can still fail and we will never get any image!
 			time.sleep(retry_index := retry_index + 1)
 			driver.refresh()
-			img_list = driver.find_elements(#By.CSS_SELECTOR, 
-				'div.imgpt a img.mimg')
+			img_list = driver.find_elements('div.imgpt a img.mimg')
 			if not len(img_list):
-				continue
+				try:
+					driver.find_element('img.gil_err_img[alt="Unsafe image content detected"]')
+					SendMessage(context, {"Text": "Unsafe image content detected: This result {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read()}})
+					return closeSelenium(driver_index, driver)
+				except: # no error is present, so we just have to wait more for the images
+					continue
 			img_array = []
 			for img_url in img_list:
 				img_url = img_url.get_attribute("src").split('?')[0]
 				img_array.append({"url": img_url}) #, "bytes": HttpReq(img_url).read()})
 			page_url = driver.current_url.split('?')[0]
-			SendMsg(context, {
-				"TextPlain": f'"{data.Body}"\n{{{page_url}}}',
-				"TextMarkdown": (f'"_{CharEscape(data.Body, "MARKDOWN")}_"\n' + MarkdownCode(page_url, True)),
+			SendMessage(context, {
+				"TextPlain": f'"{prompt}"\n{{{page_url}}}',
+				"TextMarkdown": (f'"_{CharEscape(prompt, "MARKDOWN")}_"\n' + MarkdownCode(page_url, True)),
 				"media": img_array,
 			})
-			closeSelenium(driver)
-			break
-			#except Exception as ex:
-			#	pass
+			return closeSelenium(driver_index, driver)
+		raise Exception("VM timed out.")
 	except Exception as error:
 		Log(format_exc())
-		SendMsg(context, {"TextPlain": "An unexpected error occurred."})
-		closeSelenium(driver)
+		SendMessage(context, {"TextPlain": "An unexpected error occurred."})
+		closeSelenium(driver_index, driver)
+
+def cCraiyonSelenium(context:EventContext, data:InputMessageData) -> None:
+	prompt = data.command.body
+	if not prompt:
+		return SendMessage(context, {"Text": "Please tell me what to generate."})
+	driver_index, driver = None, None
+	try:
+		driver = getSelenium()
+		if not driver:
+			return SendMessage(context, {"Text": "Couldn't access a web scraping VM as they are all busy. Please try again later."})
+		driver_index, driver = driver
+		driver.get("https://www.craiyon.com/")
+		driver.find_element('textarea#prompt').send_keys(prompt)
+		driver.execute_script("arguments[0].click();", driver.find_element('button#generateButton'))
+		SendMessage(context, {"Text": "Request sent successfully, please wait up to 60 seconds..."})
+		retry_index = 3
+		while retry_index < 16:
+			time.sleep(retry_index := retry_index + 1)
+			img_list = driver.find_elements('div.image-container > img')
+			if not len(img_list):
+				continue
+			img_array = []
+			for img_elem in img_list:
+				img_array.append({"url": img_elem.get_attribute("src")}) #, "bytes": HttpReq(img_url).read()})
+			SendMessage(context, {
+				"TextPlain": f'"{prompt}"',
+				"TextMarkdown": (f'"_{CharEscape(prompt, "MARKDOWN")}_"'),
+				"media": img_array,
+			})
+			return closeSelenium(driver_index, driver)
+		raise Exception("VM timed out.")
+	except Exception as error:
+		Log(format_exc())
+		SendMessage(context, {"TextPlain": "An unexpected error occurred."})
+		closeSelenium(driver_index, driver)
 
 RegisterModule(name="Scrapers", endpoints={
 	"DALL-E": CreateEndpoint(["dalle"], summary="Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.", handler=cDalleSelenium),
+	"Craiyon": CreateEndpoint(["craiyon"], summary="Sends an AI-generated picture from Craiyon.com.", handler=cCraiyonSelenium),
 })
 

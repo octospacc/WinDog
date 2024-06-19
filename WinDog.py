@@ -22,6 +22,22 @@ from LibWinDog.Database import *
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
 MdEscapes = '\\`*_{}[]()<>#+-.!|='
 
+class SafeNamespace(SimpleNamespace):
+	def __getattribute__(self, value):
+		try:
+			return super().__getattribute__(value)
+		except AttributeError:
+			return None
+
+class EventContext(SafeNamespace):
+	pass
+
+class InputMessageData(SafeNamespace):
+	pass
+
+class OutputMessageData(SafeNamespace):
+	pass
+
 def Log(text:str, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
 	endline = '\n'
 	if newline == False or (inline and newline == None):
@@ -114,13 +130,13 @@ def HtmlEscapeFull(Raw:str) -> str:
 def GetRawTokens(text:str) -> list:
 	return text.strip().replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')
 
-def ParseCmd(msg) -> SimpleNamespace|None:
+def ParseCmd(msg) -> SafeNamespace|None:
 	#if not len(msg) or msg[1] not in CmdPrefixes:
 	#	return
 	name = msg.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')[0][1:].split('@')[0]
 	#if not name:
 	#	return
-	return SimpleNamespace(**{
+	return SafeNamespace(**{
 		"Name": name.lower(),
 		"Body": name.join(msg.split(name)[1:]).strip(),
 		"Tokens": GetRawTokens(msg),
@@ -143,42 +159,46 @@ def RandHexStr(length:int) -> str:
 		hexa += choice('0123456789abcdef')
 	return hexa
 
-def ParseCommand(text:str) -> SimpleNamespace|None:
+def ParseCommand(text:str) -> SafeNamespace|None:
+	command = SafeNamespace()
+	if not text:
+		return command
 	text = text.strip()
-	try: # ensure command is not empty
+	try: # ensure text is a non-empty command
 		if not (text[0] in CmdPrefixes and text[1:].strip()):
-			return
+			return command
 	except IndexError:
 		return
-	command = SimpleNamespace(**{})
 	command.tokens = text.replace("\r", " ").replace("\n", " ").replace("\t", " ").replace("  ", " ").replace("  ", " ").split(" ")
 	command.name = command.tokens[0][1:].lower()
 	command.body = text[len(command.tokens[0]):].strip()
+	if command.name not in Endpoints:
+		return command
 	if (endpoint_arguments := Endpoints[command.name]["arguments"]):
 		command.arguments = {}
-		# TODO differences between required (True) and optional (False) args
-		for index, key in enumerate(endpoint_arguments):
+		index = 1
+		for key in endpoint_arguments:
+			if not endpoint_arguments[key]:
+				continue # skip optional (False) arguments for now, they will be implemented later
 			try:
-				value = command.tokens[index + 1]
+				value = command.tokens[index]
 				command.body = command.body[len(value):].strip()
 			except IndexError:
 				value = None
 			command.arguments[key] = value
+			index += 1
 	return command
 
-def OnMessageParsed(data:SimpleNamespace) -> None:
+def OnMessageParsed(data:InputMessageData) -> None:
 	if Debug and (DumpToFile or DumpToConsole):
 		text = (data.text_auto.replace('\n', '\\n') if data.text_auto else '')
-		text = f"[{int(time.time())}] [{time.ctime()}] [{data.room_id}] [{data.message_id}] [{data.user.id}] {text}"
+		text = f"[{int(time.time())}] [{time.ctime()}] [{data.room.id}] [{data.message_id}] [{data.user.id}] {text}"
 		if DumpToConsole:
 			print(text)
 		if DumpToFile:
 			open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Dump.txt"), 'a').write(text + '\n')
 
-def SendMsg(context, data, destination=None) -> None:
-	return SendMessage(context, data, destination)
-
-def SendMessage(context, data, destination=None) -> None:
+def SendMessage(context, data:OutputMessageData, destination=None) -> None:
 	if type(context) == dict:
 		event = context['Event'] if 'Event' in context else None
 		manager = context['Manager'] if 'Manager' in context else None
@@ -195,14 +215,14 @@ def SendMessage(context, data, destination=None) -> None:
 		textMarkdown = CharEscape(HtmlUnescape(data['Text']), InferMdEscape(HtmlUnescape(data['Text']), textPlain))
 	for platform in Platforms:
 		platform = Platforms[platform]
-		if isinstanceSafe(event, InDict(platform, "eventClass")) or isinstanceSafe(manager, InDict(platform, "managerClass")):
-			platform["sender"](event, manager, data, destination, textPlain, textMarkdown)
+		if isinstanceSafe(event, platform.eventClass) or isinstanceSafe(manager, platform.managerClass):
+			platform.sender(event, manager, data, destination, textPlain, textMarkdown)
 
-def SendReaction() -> None:
+def SendNotice(context, data) -> None:
 	pass
 
-def RegisterPlatform(name:str, main:callable, sender:callable, *, eventClass=None, managerClass=None) -> None:
-	Platforms[name] = {"main": main, "sender": sender, "eventClass": eventClass, "managerClass": managerClass}
+def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, eventClass=None, managerClass=None) -> None:
+	Platforms[name] = SafeNamespace(main=main, sender=sender, linker=linker, eventClass=eventClass, managerClass=managerClass)
 	Log(f"{name}, ", inline=True)
 
 def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str|None=None) -> None:
@@ -217,12 +237,28 @@ def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str
 def CreateEndpoint(names:list[str], handler:callable, arguments:dict[str, bool]|None=None, *, summary:str|None=None) -> dict:
 	return {"names": names, "summary": summary, "handler": handler, "arguments": arguments}
 
+def WriteNewConfig() -> None:
+	Log("💾️ No configuration found! Generating and writing to `./Config.py`... ", inline=True)
+	with open("./Config.py", 'w') as configFile:
+		opening = '# windog config start #'
+		closing = '# end windog config #'
+		for folder in ("LibWinDog", "ModWinDog"):
+			for file in glob(f"./{folder}/**/*.py", recursive=True):
+				try:
+					name = '/'.join(file.split('/')[1:-1])
+					heading = f"# ==={'=' * len(name)}=== #"
+					source = open(file, 'r').read().replace(f"''' {opening}", f'""" {opening}').replace(f"{closing} '''", f'{closing} """')
+					content = '\n'.join(content.split(f'""" {opening}')[1].split(f'{closing} """')[0].split('\n')[1:-1])
+					configFile.write(f"{heading}\n# 🔽️ {name} 🔽️ #\n{heading}\n{content}\n\n")
+				except IndexError:
+					pass
+
 def Main() -> None:
 	#SetupDb()
 	SetupLocales()
 	Log(f"📨️ Initializing Platforms... ", newline=False)
 	for platform in Platforms:
-		if Platforms[platform]["main"]():
+		if Platforms[platform].main():
 			Log(f"{platform}, ", inline=True)
 	Log("...Done. ✅️", inline=True, newline=True)
 	Log("🐶️ WinDog Ready!")
@@ -265,20 +301,7 @@ if __name__ == '__main__':
 	if isfile("./Config.py"):
 		from Config import *
 	else:
-		Log("💾️ No configuration found! Generating and writing to `./Config.py`... ", inline=True)
-		with open("./Config.py", 'w') as configFile:
-			opening = '# windog config start #'
-			closing = '# end windog config #'
-			for folder in ("LibWinDog", "ModWinDog"):
-				for file in glob(f"./{folder}/**/*.py", recursive=True):
-					try:
-						name = '/'.join(file.split('/')[1:-1])
-						heading = f"# ==={'=' * len(name)}=== #"
-						source = open(file, 'r').read().replace(f"''' {opening}", f'""" {opening}').replace(f"{closing} '''", f'{closing} """')
-						content = '\n'.join(content.split(f'""" {opening}')[1].split(f'{closing} """')[0].split('\n')[1:-1])
-						configFile.write(f"{heading}\n# 🔽️ {name} 🔽️ #\n{heading}\n{content}\n\n")
-					except IndexError:
-						pass
+		WriteNewConfig()
 	Log("Done. ✅️", inline=True, newline=True)
 
 	Main()

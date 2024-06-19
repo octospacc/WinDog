@@ -21,21 +21,24 @@ def MastodonMain() -> bool:
 	Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
 	class MastodonListener(mastodon.StreamListener):
 		def on_notification(self, event):
-			if event['type'] == 'mention':
-				#OnMessageParsed()
-				message = BeautifulSoup(event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
-				if not message.split('@')[0]:
-					message = ' '.join('@'.join(message.split('@')[1:]).strip().split(' ')[1:]).strip()
-				if message[0] in CmdPrefixes:
-					command = ParseCmd(message)
-					if command:
-						command.messageId = event['status']['id']
-						if command.Name in Endpoints:
-							Endpoints[command.Name]["handler"]({"Event": event, "Manager": Mastodon}, command)
+			MastodonHandler(event)
 	Mastodon.stream_user(MastodonListener(), run_async=True)
 	return True
 
-def MastodonSender(event, manager, data, destination, textPlain, textMarkdown) -> None:
+def MastodonHandler(event):
+	if event['type'] == 'mention':
+		#OnMessageParsed()
+		message = BeautifulSoup(event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
+		if not message.split('@')[0]:
+			message = ' '.join('@'.join(message.split('@')[1:]).strip().split(' ')[1:]).strip()
+		if message[0] in CmdPrefixes:
+			command = ParseCmd(message)
+			if command:
+				command.messageId = event['status']['id']
+				if command.Name in Endpoints:
+					Endpoints[command.Name]["handler"]({"Event": event, "Manager": Mastodon}, command)
+
+def MastodonSender(event, manager, data:OutputMessageData, destination, textPlain, textMarkdown) -> None:
 	if InDict(data, 'Media'):
 		Media = manager.media_post(data['Media'], Magic(mime=True).from_buffer(data['Media']))
 		while Media['url'] == 'null':

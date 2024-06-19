@@ -13,7 +13,7 @@ LogToFile = True
 DumpToConsole = False
 DumpToFile = False
 
-AdminIds = [ "123456789@telegram", "634314973@telegram", "admin@activitypub@mastodon.example.com", ]
+AdminIds = [ "telegram:123456789", "telegram:634314973", "activitypub:admin@mastodon.example.com", ]
 
 DefaultLang = "en"
 Debug = False

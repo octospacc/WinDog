@@ -16,7 +16,7 @@ from urllib.request import urlopen, Request
 def HttpReq(url:str, method:str|None=None, *, body:bytes=None, headers:dict[str, str]={"User-Agent": WebUserAgent}):
 	return urlopen(Request(url, method=method, data=body, headers=headers))
 
-def cEmbedded(context, data) -> None:
+def cEmbedded(context:EventContext, data:InputMessageData) -> None:
 	if len(data.Tokens) >= 2:
 		# Find links in command body
 		Text = (data.TextMarkdown + ' ' + data.TextPlain)
@@ -48,10 +48,10 @@ def cEmbedded(context, data) -> None:
 			elif urlDomain == "vm.tiktok.com":
 				urlDomain = "vm.vxtiktok.com"
 			url = urlDomain + url[len(urlDomain):]
-		SendMsg(context, {"TextPlain": f"{{{proto}{url}}}"})
+		SendMessage(context, {"TextPlain": f"{{{proto}{url}}}"})
 	# else TODO error message?
 
-def cWeb(context, data) -> None:
+def cWeb(context:EventContext, data:InputMessageData) -> None:
 	if data.Body:
 		try:
 			QueryUrl = UrlParse.quote(data.Body)
@@ -68,34 +68,35 @@ def cWeb(context, data) -> None:
 						Caption += f'[{Index}] {Title} : {{{Link}}}\n\n'
 					else:
 						continue
-			SendMsg(context, {"TextPlain": f'{Caption}...'})
+			SendMessage(context, {"TextPlain": f'{Caption}...'})
 		except Exception:
 			raise
 	else:
 		pass
 
-def cImages(context, data) -> None:
+def cImages(context:EventContext, data:InputMessageData) -> None:
 	pass
 
-def cNews(context, data) -> None:
+def cNews(context:EventContext, data:InputMessageData) -> None:
 	pass
 
-def cTranslate(context, data) -> None:
-	if len(data.Tokens) < 3:
-		return
+def cTranslate(context:EventContext, data:InputMessageData) -> None:
+	language_to = data.command.arguments["language_to"]
+	text_input = (data.command.body or (data.Quoted and data.Quoted.Body))
+	if not (text_input and language_to):
+		return SendMessage(context, {"TextPlain": f"Usage: /translate <to language> <text>"})
 	try:
-		toLang = data.Tokens[1]
 		# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
-		result = json.loads(HttpReq(f'https://lingva.ml/api/v1/auto/{toLang}/{UrlParse.quote(toLang.join(data.Body.split(toLang)[1:]))}').read())
-		SendMsg(context, {"TextPlain": f"[{result['info']['detectedSource']} (auto) -> {toLang}]\n\n{result['translation']}"})
+		result = json.loads(HttpReq(f'https://lingva.ml/api/v1/auto/{language_to}/{UrlParse.quote(text_input)}').read())
+		SendMessage(context, {"TextPlain": f"[{result['info']['detectedSource']} (auto) -> {language_to}]\n\n{result['translation']}"})
 	except Exception:
 		raise
 
-def cUnsplash(context, data) -> None:
+def cUnsplash(context:EventContext, data:InputMessageData) -> None:
 	try:
 		Req = HttpReq(f'https://source.unsplash.com/random/?{UrlParse.quote(data.Body)}')
 		ImgUrl = Req.geturl().split('?')[0]
-		SendMsg(context, {
+		SendMessage(context, {
 			"TextPlain": f'{{{ImgUrl}}}',
 			"TextMarkdown": MarkdownCode(ImgUrl, True),
 			"Media": Req.read(),
@@ -103,7 +104,7 @@ def cUnsplash(context, data) -> None:
 	except Exception:
 		raise
 
-def cSafebooru(context, data) -> None:
+def cSafebooru(context:EventContext, data:InputMessageData) -> None:
 	ApiUrl = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
 	try:
 		if data.Body:
@@ -114,7 +115,7 @@ def cSafebooru(context, data) -> None:
 			if not ImgUrls: # literal search
 				ImgUrls = HttpReq(f'{ApiUrl}{UrlParse.quote(data.Body)}').read().decode().split(' file_url="')[1:]
 			if not ImgUrls:
-				return SendMsg(context, {"Text": "Error: Could not get any result from Safebooru."})
+				return SendMessage(context, {"Text": "Error: Could not get any result from Safebooru."})
 			ImgXml = choice(ImgUrls)
 			ImgUrl = ImgXml.split('"')[0]
 			ImgId = ImgXml.split(' id="')[1].split('"')[0]
@@ -126,7 +127,7 @@ def cSafebooru(context, data) -> None:
 					ImgId = ImgUrl.split('?')[-1]
 					break
 		if ImgUrl:
-			SendMsg(context, {
+			SendMessage(context, {
 				"TextPlain": f'[{ImgId}]\n{{{ImgUrl}}}',
 				"TextMarkdown": (f'\\[`{ImgId}`\\]\n' + MarkdownCode(ImgUrl, True)),
 				"media": {"url": ImgUrl}, #, "bytes": HttpReq(ImgUrl).read()},
@@ -136,45 +137,14 @@ def cSafebooru(context, data) -> None:
 	except Exception as error:
 		raise
 
-def cDalle(context, data) -> None:
-	if not data.Body:
-		return SendMsg(context, {"Text": "Please tell me what to generate."})
-	image_filter = "&quot;https://th.bing.com/th/id/"
-	try:
-		retry_index = 3
-		result_list = ""
-		result_id = HttpReq(
-			f"https://www.bing.com/images/create?q={UrlParse.quote(data.Body)}&rt=3&FORM=GENCRE",#"4&FORM=GENCRE",
-			body=f"q={UrlParse.urlencode({'q': data.Body})}&qs=ds".encode(),
-			headers=MicrosoftBingSettings).read().decode()
-		print(result_id)
-		result_id = result_id.split('&amp;id=')[1].split('&amp;')[0]
-		results_url = f"https://www.bing.com/images/create/-/{result_id}?FORM=GENCRE"
-		SendMsg(context, {"Text": "Request sent, please wait..."})
-		while retry_index < 12 and image_filter not in result_list:
-			result_list = HttpReq(results_url, headers={"User-Agent": MicrosoftBingSettings["User-Agent"]}).read().decode()
-			time.sleep(1.25 * retry_index)
-			retry_index += 1
-		if image_filter in result_list:
-			SendMsg(context, {
-				"TextPlain": f"{{{results_url}}}",
-				"TextMarkdown": MarkdownCode(results_url, True),
-				"Media": HttpReq(
-					result_list.split(image_filter)[1].split('\\&quot;')[0],
-					headers={"User-Agent": MicrosoftBingSettings["User-Agent"]}).read(),
-			})
-		else:
-			raise Exception("Something went wrong.")
-	except Exception as error:
-		Log(error)
-		SendMsg(context, {"TextPlain": error})
-
 RegisterModule(name="Internet", summary="Tools and toys related to the Internet.", endpoints={
 	"Embedded": CreateEndpoint(["embedded"], summary="Rewrites a link, trying to bypass embed view protection.", handler=cEmbedded),
 	"Web": CreateEndpoint(["web"], summary="Provides results of a DuckDuckGo search.", handler=cWeb),
-	"Translate": CreateEndpoint(["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate),
+	"Translate": CreateEndpoint(["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate, arguments={
+		"language_to": True,
+		"language_from": False,
+	}),
 	"Unsplash": CreateEndpoint(["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
 	"Safebooru": CreateEndpoint(["safebooru"], summary="Sends a picture sourced from Safebooru.", handler=cSafebooru),
-	#"DALL-E": CreateEndpoint(["dalle"], summary="Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.", handler=cDalle),
 })
 

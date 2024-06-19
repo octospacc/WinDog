@@ -30,23 +30,35 @@ def TelegramMain() -> bool:
 	#app.run_polling(allowed_updates=Update.ALL_TYPES)
 	return True
 
+def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
+	data = InputMessageData(
+		message_id = f"telegram:{message.message_id}",
+		text_plain = message.text,
+		text_markdown = message.text_markdown_v2,
+	)
+	data.text_auto = GetWeightedText(data.text_markdown, data.text_plain)
+	data.command = ParseCommand(data.text_plain)
+	data.room = SafeNamespace(
+		id = f"telegram:{message.chat.id}",
+		tag = message.chat.username,
+		name = message.chat.title,
+	)
+	data.user = SafeNamespace(
+		id = f"telegram:{message.from_user.id}",
+		tag = message.from_user.username,
+		name = message.from_user.first_name,
+	)
+	return data
+
 def TelegramHandlerWrapper(update:telegram.Update, context:CallbackContext=None) -> None:
 	Thread(target=lambda:TelegramHandlerCore(update, context)).start()
 
 def TelegramHandlerCore(update:telegram.Update, context:CallbackContext=None) -> None:
 	if not update.message:
 		return
-	data = SimpleNamespace()
-	data.room_id = f"{update.message.chat.id}@telegram"
-	data.message_id = f"{update.message.message_id}@telegram"
-	data.text_plain = update.message.text
-	data.text_markdown = update.message.text_markdown_v2
-	data.text_auto = GetWeightedText(data.text_markdown, data.text_plain)
-	data.command = ParseCommand(data.text_plain)
-	data.user = SimpleNamespace()
-	data.user.name = update.message.from_user.first_name
-	data.user.tag = update.message.from_user.username
-	data.user.id = f"{update.message.from_user.id}@telegram"
+	data = TelegramMakeInputMessageData(update.message)
+	if update.message.reply_to_message:
+		data.quoted = TelegramMakeInputMessageData(update.message.reply_to_message)
 	OnMessageParsed(data)
 	cmd = ParseCmd(update.message.text)
 	if cmd:
@@ -59,7 +71,7 @@ def TelegramHandlerCore(update:telegram.Update, context:CallbackContext=None) ->
 			cmd.User = SimpleNamespace(**{
 				"Name": update.message.from_user.first_name,
 				"Tag": update.message.from_user.username,
-				"Id": f'{update.message.from_user.id}@telegram',
+				"Id": f'telegram:{update.message.from_user.id}',
 			})
 			if update.message.reply_to_message:
 				cmd.Quoted = SimpleNamespace(**{
@@ -71,12 +83,13 @@ def TelegramHandlerCore(update:telegram.Update, context:CallbackContext=None) ->
 					"User": SimpleNamespace(**{
 						"Name": update.message.reply_to_message.from_user.first_name,
 						"Tag": update.message.reply_to_message.from_user.username,
-						"Id": f'{update.message.reply_to_message.from_user.id}@telegram',
+						"Id": f'telegram:{update.message.reply_to_message.from_user.id}',
 					}),
 				})
 			Endpoints[cmd.Name]["handler"]({"Event": update, "Manager": context}, cmd)
+			#Endpoints[cmd.Name]["handler"](SafeNamespace(platform="telegram", event=update, manager=context), cmd)
 
-def TelegramSender(event, manager, data, destination, textPlain, textMarkdown) -> None:
+def TelegramSender(event, manager, data:OutputMessageData, destination, textPlain, textMarkdown) -> None:
 	if destination:
 		manager.bot.send_message(destination, text=textPlain)
 	else:
@@ -84,30 +97,6 @@ def TelegramSender(event, manager, data, destination, textPlain, textMarkdown) -
 		if InDict(data, "Media") and not InDict(data, "media"):
 			data["media"] = {"bytes": data["Media"]}
 		if InDict(data, "media"):
-			#data["media"] = SureArray(data["media"])
-			#media = (data["media"][0]["bytes"] if "bytes" in data["media"][0] else data["media"][0]["url"])
-			#if len(data["media"]) > 1:
-			#	media_list = []
-			#	media_list.append(telegram.InputMediaPhoto(
-			#		media[0],
-			#		caption=(textMarkdown if textMarkdown else textPlain if textPlain else None),
-			#		parse_mode=("MarkdownV2" if textMarkdown else None)))
-			#	for medium in media[1:]:
-			#		media_list.append(telegram.InputMediaPhoto(medium))
-			#	event.message.reply_media_group(media_list, reply_to_message_id=replyToId)
-			#else:
-			#	event.message.reply_photo(
-			#		media,
-			#		caption=(textMarkdown if textMarkdown else textPlain if textPlain else None),
-			#		parse_mode=("MarkdownV2" if textMarkdown else None),
-			#		reply_to_message_id=replyToId)
-			#event.message.reply_photo(
-			#	(DictGet(media[0], "bytes") or DictGet(media[0], "url")),
-			#	caption=(textMarkdown if textMarkdown else textPlain if textPlain else None),
-			#	parse_mode=("MarkdownV2" if textMarkdown else None),
-			#	reply_to_message_id=replyToId)
-			#for medium in media[1:]:
-			#	event.message.reply_photo((DictGet(medium, "bytes") or DictGet(medium, "url")), reply_to_message_id=replyToId)
 			for medium in SureArray(data["media"]):
 				event.message.reply_photo(
 					(DictGet(medium, "bytes") or DictGet(medium, "url")),
@@ -119,5 +108,15 @@ def TelegramSender(event, manager, data, destination, textPlain, textMarkdown) -
 		elif textPlain:
 			event.message.reply_text(textPlain, reply_to_message_id=replyToId)
 
-RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, eventClass=telegram.Update)
+def TelegramLinker(data:InputMessageData) -> SafeNamespace:
+	linked = SafeNamespace()
+	if data.room.id:
+		room_id = data.room.id.split("telegram:")[1]
+		linked.room = f"https://t.me/{room_id}"
+	if data.message_id:
+		message_id = data.message_id.split("telegram:")[1]
+		linked.message = f"{linked.room}/{message_id}"
+	return linked
+
+RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, linker=TelegramLinker, eventClass=telegram.Update)
 

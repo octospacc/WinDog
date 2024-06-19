@@ -23,10 +23,11 @@ def luaAttributeFilter(obj, attr_name, is_setting):
 	raise AttributeError("Access Denied.")
 
 # TODO make print behave the same as normal Lua, and expose a function for printing without newlines
-def cLua(context, data=None) -> None:
-	scriptText = (data.Body or (data.Quoted and data.Quoted.Body))
+def cLua(context:EventContext, data:InputMessageData) -> None:
+	# TODO update quoted api getting
+	scriptText = (data.command.body or (data.Quoted and data.Quoted.Body))
 	if not scriptText:
-		return SendMsg(context, {"Text": "You must provide some Lua code to execute."})
+		return SendMessage(context, {"Text": "You must provide some Lua code to execute."})
 	luaRuntime = NewLuaRuntime(max_memory=LuaMemoryLimit, register_eval=False, register_builtins=False, attribute_filter=luaAttributeFilter)
 	luaRuntime.eval(f"""(function()
 _windog = {{ stdout = "" }}
@@ -49,7 +50,7 @@ return _windog.stdout .. (_windog.scriptout or '')
 end)()"""))
 	except (LuaError, LuaSyntaxError) as error:
 		Log(textOutput := ("Lua Error: " + str(error)))
-	SendMsg(context, {"TextPlain": textOutput})
+	SendMessage(context, {"TextPlain": textOutput})
 
 RegisterModule(name="Scripting", group="Geek", summary="Tools for programming the bot and expanding its features.", endpoints={
 	"Lua": CreateEndpoint(["lua"], summary="Execute a Lua snippet and get its output.", handler=cLua),
