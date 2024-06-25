@@ -4,12 +4,14 @@
 # ================================== #
 """ # windog config start # """
 
-# If you have modified the bot's code, you should set this
+# If you have modified the bot's code, you should set this.
 ModifiedSourceUrl = ""
 
+# Logging of system information and runtime errors. Recommended to be on at least for console.
 LogToConsole = True
 LogToFile = True
 
+# Dumping of the bot's remote events. Should stay off unless needed for debugging.
 DumpToConsole = False
 DumpToFile = False
 

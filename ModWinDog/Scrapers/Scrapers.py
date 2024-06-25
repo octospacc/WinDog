@@ -65,7 +65,7 @@ def cDalleSelenium(context:EventContext, data:InputMessageData) -> None:
 			if not len(img_list):
 				try:
 					driver.find_element('img.gil_err_img[alt="Unsafe image content detected"]')
-					SendMessage(context, {"Text": "Unsafe image content detected: This result {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read()}})
+					SendMessage(context, {"Text": f"Unsafe image content detected: This result {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read()}})
 					return closeSelenium(driver_index, driver)
 				except: # no error is present, so we just have to wait more for the images
 					continue
@@ -121,8 +121,8 @@ def cCraiyonSelenium(context:EventContext, data:InputMessageData) -> None:
 		SendMessage(context, {"TextPlain": "An unexpected error occurred."})
 		closeSelenium(driver_index, driver)
 
-RegisterModule(name="Scrapers", endpoints={
-	"DALL-E": CreateEndpoint(["dalle"], summary="Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.", handler=cDalleSelenium),
-	"Craiyon": CreateEndpoint(["craiyon"], summary="Sends an AI-generated picture from Craiyon.com.", handler=cCraiyonSelenium),
-})
+RegisterModule(name="Scrapers", endpoints=[
+	SafeNamespace(names=["dalle"], summary="Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.", handler=cDalleSelenium),
+	SafeNamespace(names=["craiyon"], summary="Sends an AI-generated picture from Craiyon.com.", handler=cCraiyonSelenium),
+])
 

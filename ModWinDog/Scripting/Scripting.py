@@ -52,7 +52,7 @@ end)()"""))
 		Log(textOutput := ("Lua Error: " + str(error)))
 	SendMessage(context, {"TextPlain": textOutput})
 
-RegisterModule(name="Scripting", group="Geek", summary="Tools for programming the bot and expanding its features.", endpoints={
-	"Lua": CreateEndpoint(["lua"], summary="Execute a Lua snippet and get its output.", handler=cLua),
-})
+RegisterModule(name="Scripting", group="Geek", summary="Tools for programming the bot and expanding its features.", endpoints=[
+	SafeNamespace(names=["lua"], summary="Execute a Lua snippet and get its output.", handler=cLua),
+])
 

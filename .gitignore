@@ -3,6 +3,6 @@
 /Dump.txt
 /Log.txt
 /Selenium-WinDog/
-/downloaded_files
+/downloaded_files/
 /session.txt
 *.pyc

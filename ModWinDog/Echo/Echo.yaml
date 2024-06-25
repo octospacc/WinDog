@@ -1,0 +1,8 @@
+endpoints:
+	echo:
+		summary:
+			en: Responds back with the original text of the received message.
+		empty:
+			en: <b>Echo what? Give me something to repeat.</b>
+			it: <b>Echo cosa? Dimmi qualcosa da ripetere.</b>
+

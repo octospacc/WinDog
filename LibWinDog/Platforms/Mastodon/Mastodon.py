@@ -14,6 +14,7 @@ MastodonUrl, MastodonToken = None, None
 
 import mastodon
 from bs4 import BeautifulSoup
+from magic import Magic
 
 def MastodonMain() -> bool:
 	if not (MastodonUrl and MastodonToken):
@@ -36,19 +37,19 @@ def MastodonHandler(event):
 			if command:
 				command.messageId = event['status']['id']
 				if command.Name in Endpoints:
-					Endpoints[command.Name]["handler"]({"Event": event, "Manager": Mastodon}, command)
+					CallEndpoint(command.Name, EventContext(platform="mastodon", event=event, manager=Mastodon), command)
 
-def MastodonSender(event, manager, data:OutputMessageData, destination, textPlain, textMarkdown) -> None:
+def MastodonSender(context:EventContext, data:OutputMessageData, destination, textPlain, textMarkdown) -> None:
 	if InDict(data, 'Media'):
-		Media = manager.media_post(data['Media'], Magic(mime=True).from_buffer(data['Media']))
+		Media = context.manager.media_post(data['Media'], Magic(mime=True).from_buffer(data['Media']))
 		while Media['url'] == 'null':
-			Media = manager.media(Media)
+			Media = context.manager.media(Media)
 	if textPlain or Media:
-		manager.status_post(
-			status=(textPlain + '\n\n@' + event['account']['acct']),
+		context.manager.status_post(
+			status=(textPlain + '\n\n@' + context.event['account']['acct']),
 			media_ids=(Media if InDict(data, 'Media') else None),
-			in_reply_to_id=event['status']['id'],
-			visibility=('direct' if event['status']['visibility'] == 'direct' else 'unlisted'),
+			in_reply_to_id=context.event['status']['id'],
+			visibility=('direct' if context.event['status']['visibility'] == 'direct' else 'unlisted'),
 		)
 
 RegisterPlatform(name="Mastodon", main=MastodonMain, sender=MastodonSender, managerClass=mastodon.Mastodon)

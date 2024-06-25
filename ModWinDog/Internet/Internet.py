@@ -137,14 +137,14 @@ def cSafebooru(context:EventContext, data:InputMessageData) -> None:
 	except Exception as error:
 		raise
 
-RegisterModule(name="Internet", summary="Tools and toys related to the Internet.", endpoints={
-	"Embedded": CreateEndpoint(["embedded"], summary="Rewrites a link, trying to bypass embed view protection.", handler=cEmbedded),
-	"Web": CreateEndpoint(["web"], summary="Provides results of a DuckDuckGo search.", handler=cWeb),
-	"Translate": CreateEndpoint(["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate, arguments={
+RegisterModule(name="Internet", summary="Tools and toys related to the Internet.", endpoints=[
+	SafeNamespace(names=["embedded"], summary="Rewrites a link, trying to bypass embed view protection.", handler=cEmbedded),
+	SafeNamespace(names=["web"], summary="Provides results of a DuckDuckGo search.", handler=cWeb),
+	SafeNamespace(names=["translate"], summary="Returns the received message after translating it in another language.", handler=cTranslate, arguments={
 		"language_to": True,
 		"language_from": False,
 	}),
-	"Unsplash": CreateEndpoint(["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
-	"Safebooru": CreateEndpoint(["safebooru"], summary="Sends a picture sourced from Safebooru.", handler=cSafebooru),
-})
+	SafeNamespace(names=["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
+	SafeNamespace(names=["safebooru"], summary="Sends a picture sourced from Safebooru.", handler=cSafebooru),
+])
 
