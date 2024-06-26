@@ -31,6 +31,8 @@ def TelegramMain() -> bool:
 	return True
 
 def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
+	#if not message:
+	#	return None
 	data = InputMessageData(
 		message_id = f"telegram:{message.message_id}",
 		text_plain = message.text,
@@ -48,8 +50,7 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 		tag = message.from_user.username,
 		name = message.from_user.first_name,
 	)
-	#if (db_user := GetUserData(data.user.id)):
-	#	data.user.language = db_user.language
+	data.user.settings = GetUserSettings(data.user.id)
 	return data
 
 def TelegramHandlerWrapper(update:telegram.Update, context:CallbackContext=None) -> None:
@@ -64,8 +65,11 @@ def TelegramHandlerCore(update:telegram.Update, context:CallbackContext=None) ->
 	OnMessageParsed(data)
 	cmd = ParseCmd(update.message.text)
 	if cmd:
+		# TODO remove old cmd and just pass the data object
 		cmd.command = data.command
 		cmd.quoted = data.quoted
+		cmd.user = data.user
+		cmd.message_id = data.message_id
 		cmd.messageId = update.message.message_id
 		cmd.TextPlain = cmd.Body
 		cmd.TextMarkdown = update.message.text_markdown_v2
@@ -91,25 +95,25 @@ def TelegramHandlerCore(update:telegram.Update, context:CallbackContext=None) ->
 				})
 			CallEndpoint(cmd.Name, EventContext(platform="telegram", event=update, manager=context), cmd)
 
-def TelegramSender(context:EventContext, data:OutputMessageData, destination, textPlain, textMarkdown):
+def TelegramSender(context:EventContext, data:OutputMessageData, destination):
 	result = None
 	if destination:
-		result = context.manager.bot.send_message(destination, text=textPlain)
+		result = context.manager.bot.send_message(destination, text=data.text_plain)
 	else:
-		replyToId = (data["ReplyTo"] if ("ReplyTo" in data and data["ReplyTo"]) else context.event.message.message_id)
-		if InDict(data, "Media") and not InDict(data, "media"):
-			data["media"] = {"bytes": data["Media"]}
-		if InDict(data, "media"):
-			for medium in SureArray(data["media"]):
+		replyToId = (data.ReplyTo or context.event.message.message_id)
+		if data.media:
+			for medium in data.media:
 				result = context.event.message.reply_photo(
 					(DictGet(medium, "bytes") or DictGet(medium, "url")),
-					caption=(textMarkdown if textMarkdown else textPlain if textPlain else None),
-					parse_mode=("MarkdownV2" if textMarkdown else None),
+					caption=(data.text_html or data.text_markdown or data.text_plain),
+					parse_mode=("HTML" if data.text_html else "MarkdownV2" if data.text_markdown else None),
 					reply_to_message_id=replyToId)
-		elif textMarkdown:
-			result = context.event.message.reply_markdown_v2(textMarkdown, reply_to_message_id=replyToId)
-		elif textPlain:
-			result = context.event.message.reply_text(textPlain, reply_to_message_id=replyToId)
+		elif data.text_html:
+			result = context.event.message.reply_html(data.text_html, reply_to_message_id=replyToId)
+		elif data.text_markdown:
+			result = context.event.message.reply_markdown_v2(data.text_markdown, reply_to_message_id=replyToId)
+		elif data.text_plain:
+			result = context.event.message.reply_text(data.text_plain, reply_to_message_id=replyToId)
 	return TelegramMakeInputMessageData(result)
 
 def TelegramLinker(data:InputMessageData) -> SafeNamespace:

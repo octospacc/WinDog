@@ -11,34 +11,17 @@ from hashlib import new as hashlib_new
 from os import listdir
 from os.path import isfile, isdir
 from random import choice, randint
-from types import SimpleNamespace
 from traceback import format_exc
 from yaml import load as yaml_load, BaseLoader as yaml_BaseLoader
-#from xml.etree import ElementTree
 from bs4 import BeautifulSoup
 from html import unescape as HtmlUnescape
 from markdown import markdown
+from LibWinDog.Types import *
 from LibWinDog.Config import *
 from LibWinDog.Database import *
 
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
 MdEscapes = '\\`*_{}[]()<>#+-.!|='
-
-class SafeNamespace(SimpleNamespace):
-	def __getattribute__(self, value):
-		try:
-			return super().__getattribute__(value)
-		except AttributeError:
-			return None
-
-class EventContext(SafeNamespace):
-	pass
-
-class InputMessageData(SafeNamespace):
-	pass
-
-class OutputMessageData(SafeNamespace):
-	pass
 
 def NamespaceUnion(namespaces:list|tuple, clazz=SimpleNamespace):
 	dikt = {}
@@ -113,12 +96,6 @@ def ObjGet(node:object, query:str, /) -> any:
 			node = node.__getattribute__(method)(key)
 		except exception:
 			return None
-		#try:
-		#	node = node[key]
-		#except TypeError:
-		#	node = node.__getattribute__(key)
-		#except (TypeError, KeyError, AttributeError):
-		#	return None
 	return node
 
 def isinstanceSafe(clazz:any, instance:any) -> bool:
@@ -196,10 +173,10 @@ def RandHexStr(length:int) -> str:
 		hexa += choice('0123456789abcdef')
 	return hexa
 
-def GetUserData(user_id:str) -> SafeNamespace|None:
+def GetUserSettings(user_id:str) -> SafeNamespace|None:
 	try:
-		return User.get(User.id == user_id)
-	except User.DoesNotExist:
+		return SafeNamespace(**EntitySettings.select().join(User).where(User.id == user_id).dicts().get())
+	except EntitySettings.DoesNotExist:
 		return None
 
 def ParseCommand(text:str) -> SafeNamespace|None:
@@ -243,7 +220,7 @@ def UpdateUserDb(user:SafeNamespace) -> None:
 		user_hash = ("sha256:" + hashlib_new("sha256", user.id.encode()).hexdigest())
 		try:
 			User.get(User.id_hash == user_hash)
-			User.update(id=user.id).where(User.id_hash == user_hash)
+			User.update(id=user.id).where(User.id_hash == user_hash).execute()
 		except User.DoesNotExist:
 			User.create(id=user.id, id_hash=user_hash)
 
@@ -258,19 +235,31 @@ def DumpMessage(data:InputMessageData) -> None:
 		open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Dump.txt"), 'a').write(text + '\n')
 
 def SendMessage(context:EventContext, data:OutputMessageData, destination=None) -> None:
-	if InDict(data, 'TextPlain') or InDict(data, 'TextMarkdown'):
-		textPlain = InDict(data, 'TextPlain')
-		textMarkdown = InDict(data, 'TextMarkdown')
-		if not textPlain:
-			textPlain = textMarkdown
-	elif InDict(data, 'Text'):
+	data = (OutputMessageData(**data) if type(data) == dict else data)
+
+	# TODO remove this after all modules are changed
+	if data.Text and not data.text:
+		data.text = data.Text
+	if data.TextPlain and not data.text_plain:
+		data.text_plain = data.TextPlain
+	if data.TextMarkdown and not data.text_markdown:
+		data.text_markdown = data.TextMarkdown
+
+	if data.text_plain or data.text_markdown or data.text_html:
+		if data.text_html and not data.text_plain:
+			data.text_plain = data.text_html # TODO flatten the HTML to plaintext
+		elif data.text_markdown and not data.text_plain:
+			data.text_plain = data.text_markdown
+	elif data.text:
 		# our old system attempts to always receive Markdown and retransform when needed
-		textPlain = MdToTxt(data['Text'])
-		textMarkdown = CharEscape(HtmlUnescape(data['Text']), InferMdEscape(HtmlUnescape(data['Text']), textPlain))
-	for platform in Platforms:
-		platform = Platforms[platform]
+		data.text_plain = MdToTxt(data.text)
+		data.text_markdown = CharEscape(HtmlUnescape(data.text), InferMdEscape(HtmlUnescape(data.text), data.text_plain))
+		#data.text_html = ???
+	if data.media:
+		data.media = SureArray(data.media)
+	for platform in Platforms.values():
 		if isinstanceSafe(context.event, platform.eventClass) or isinstanceSafe(context.manager, platform.managerClass):
-			return platform.sender(context, data, destination, textPlain, textMarkdown)
+			return platform.sender(context, data, destination)
 
 def SendNotice(context:EventContext, data) -> None:
 	pass
@@ -278,37 +267,12 @@ def SendNotice(context:EventContext, data) -> None:
 def DeleteMessage(context:EventContext, data) -> None:
 	pass
 
-#def ParseModuleTree(module:ElementTree.Element):
-#	def parseTexts(tree:ElementTree.Element):
-#		texts = {}
-#		for text in tree:
-#			texts[text.tag] = text.text
-#		return texts
-#	if module.tag != "module":
-#		raise Exception(f"Unknown root element <{module.tag}> in {FILE}; it should be <module>.")
-#	for option in module:
-#		match option.tag:
-#			case _:
-#				parseTexts(option)
-#			case "endpoints":
-#				for endpoint in option:
-#					for option in endpoint:
-#						match option.tag:
-#							case _:
-#								parseTexts(option)
-#							case "arguments":
-#								for argument in option:
-#									parseTexts(argument)
-
 def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, eventClass=None, managerClass=None) -> None:
 	Platforms[name] = SafeNamespace(main=main, sender=sender, linker=linker, eventClass=eventClass, managerClass=managerClass)
 	Log(f"{name}, ", inline=True)
 
 def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str|None=None) -> None:
-	module = SafeNamespace(group=group, endpoints=(SafeNamespace(**endpoints) if type(endpoints) == dict else endpoints))
-	# TODO load XML data, add to both module and locale objects
-	#if isfile(file := f"./ModWinDog/{name}/{name}.xml"):
-	#	ParseModuleTree(ElementTree.parse(file).getroot())
+	module = SafeNamespace(group=group, endpoints=endpoints)
 	if isfile(file := f"./ModWinDog/{name}/{name}.yaml"):
 		module.strings = yaml_load(open(file, 'r').read().replace("\t", "    "), Loader=yaml_BaseLoader)
 		module.get_string = (lambda query, lang=None: GetString(module.strings, query, lang))
@@ -316,7 +280,6 @@ def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str
 	Log(f"{name}, ", inline=True)
 	for endpoint in endpoints:
 		endpoint.module = module
-		endpoint.get_string = (lambda query, lang=None: module.get_string(f"endpoints.{endpoint.names[0]}.{query}", lang))
 		for name in endpoint.names:
 			Endpoints[name] = endpoint
 
@@ -324,6 +287,7 @@ def CallEndpoint(name:str, context:EventContext, data:InputMessageData):
 	endpoint = Endpoints[name]
 	context.endpoint = endpoint
 	context.module = endpoint.module
+	context.endpoint.get_string = (lambda query, lang=None: endpoint.module.get_string(f"endpoints.{data.command.name}.{query}", lang))
 	return endpoint.handler(context, data)
 
 def WriteNewConfig() -> None:
@@ -356,7 +320,6 @@ def Main() -> None:
 
 if __name__ == '__main__':
 	Log("🌞️ WinDog Starting...")
-	#Db = {"Rooms": {}, "Users": {}}
 	Locale = {"Fallback": {}}
 	Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
 

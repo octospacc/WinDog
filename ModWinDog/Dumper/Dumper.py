@@ -7,7 +7,7 @@ from json import dumps as json_dumps
 
 def cDump(context:EventContext, data:InputMessageData):
 	if not (message := ObjGet(data, "quoted")):
-		pass
+		pass # TODO send error message
 	SendMessage(context, {"TextPlain": json_dumps(message, default=(lambda obj: obj.__dict__), indent="  ")})
 
 RegisterModule(name="Dumper", group="Geek", endpoints=[

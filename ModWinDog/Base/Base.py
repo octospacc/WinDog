@@ -17,14 +17,16 @@ def cSource(context:EventContext, data:InputMessageData) -> None:
 def cGdpr(context:EventContext, data:InputMessageData) -> None:
 	pass
 
-# Module: Config
-# ...
-#def cConfig(update:telegram.Update, context:CallbackContext) -> None:
-#	Cmd = TelegramHandleCmd(update)
-#	if not Cmd: return
-#	# ... area: eu, us, ...
-#	# ... language: en, it, ...
-#	# ... userdata: import, export, delete
+def cConfig(context:EventContext, data:InputMessageData) -> None:
+	if not (settings := GetUserSettings(data.user.id)):
+		User.update(settings=EntitySettings.create()).where(User.id == data.user.id).execute()
+	if (get := ObjGet(data, "command.arguments.get")):
+		SendMessage(context, OutputMessageData(text_plain=str(ObjGet(data.user.settings, get))))
+	#Cmd = TelegramHandleCmd(update)
+	#if not Cmd: return
+	# ... area: eu, us, ...
+	# ... language: en, it, ...
+	# ... userdata: import, export, delete
 
 def cPing(context:EventContext, data:InputMessageData) -> None:
 	SendMessage(context, {"Text": "*Pong!*"})
@@ -54,6 +56,9 @@ def cExec(context:EventContext, data:InputMessageData) -> None:
 RegisterModule(name="Misc", endpoints=[
 	SafeNamespace(names=["start"], summary="Salutes the user, hinting that the bot is working and providing basic quick help.", handler=cStart),
 	SafeNamespace(names=["source"], summary="Provides a copy of the bot source codes and/or instructions on how to get it.", handler=cSource),
+	SafeNamespace(names=["config"], handler=cConfig, arguments={
+		"get": True,
+	}),
 	#SafeNamespace(names=["gdpr"], summary="Operations for european citizens regarding your personal data.", handler=cGdpr),
 	SafeNamespace(names=["ping"], summary="Responds pong, useful for testing messaging latency.", handler=cPing),
 	SafeNamespace(names=["eval"], summary="Execute a Python command (or safe literal operation) in the current context. Currently not implemented.", handler=cEval),

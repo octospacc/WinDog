@@ -17,9 +17,9 @@ def cEcho(context:EventContext, data:InputMessageData) -> None:
 			if nonascii:
 				# text is not ascii, probably an emoji (altough not necessarily), so just pass as is (useful for Telegram emojis)
 				prefix = ''
-		SendMessage(context, {"Text": (prefix + text)})
+		SendMessage(context, OutputMessageData(text=(prefix + text)))
 	else:
-		SendMessage(context, {"Text": choice(Locale.__('echo.empty'))}) #context.endpoint.get_string('empty')
+		SendMessage(context, OutputMessageData(text_html=context.endpoint.get_string('empty')))
 
 RegisterModule(name="Echo", endpoints=[
 	SafeNamespace(names=["echo"], handler=cEcho),

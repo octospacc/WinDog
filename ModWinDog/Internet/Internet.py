@@ -92,6 +92,7 @@ def cTranslate(context:EventContext, data:InputMessageData) -> None:
 	except Exception:
 		raise
 
+# unsplash source appears to be deprecated! <https://old.reddit.com/r/unsplash/comments/s13x4h/what_happened_to_sourceunsplashcom/l65epl8/>
 def cUnsplash(context:EventContext, data:InputMessageData) -> None:
 	try:
 		Req = HttpReq(f'https://source.unsplash.com/random/?{UrlParse.quote(data.Body)}')
@@ -144,7 +145,7 @@ RegisterModule(name="Internet", summary="Tools and toys related to the Internet.
 		"language_to": True,
 		"language_from": False,
 	}),
-	SafeNamespace(names=["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
+	#SafeNamespace(names=["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
 	SafeNamespace(names=["safebooru"], summary="Sends a picture sourced from Safebooru.", handler=cSafebooru),
 ])
 
