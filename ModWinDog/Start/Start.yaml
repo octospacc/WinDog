@@ -1,0 +1,16 @@
+summary:
+	en: Things related to starting the bot, on supported platforms.
+endpoints:
+	start:
+		summary:
+			en: Salutes the user, hinting that the bot is working and providing basic quick help.
+		start:
+			en: |
+				<b>Hi</b> {0}<b>!</b>
+				
+				Use /help to read a list of available commands.
+			it: |
+				<b>Ciao</b> {0}<b>!</b>
+				
+				Usa /help per leggere la lista dei comandi.
+

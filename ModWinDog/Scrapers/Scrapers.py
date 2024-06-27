@@ -36,8 +36,7 @@ def closeSelenium(index:int, driver:Driver) -> None:
 
 def cDalleSelenium(context:EventContext, data:InputMessageData) -> None:
 	warning_text = "has been blocked by Microsoft because it violates their content policy. Further attempts might lead to a ban on your profile. Please review the Code of Conduct for Image Creator in this picture or at https://www.bing.com/new/termsofuseimagecreator#content-policy."
-	prompt = data.command.body
-	if not prompt:
+	if not (prompt := data.command.body):
 		return SendMessage(context, {"Text": "Please tell me what to generate."})
 	driver_index, driver = None, None
 	try:
@@ -74,11 +73,10 @@ def cDalleSelenium(context:EventContext, data:InputMessageData) -> None:
 				img_url = img_url.get_attribute("src").split('?')[0]
 				img_array.append({"url": img_url}) #, "bytes": HttpReq(img_url).read()})
 			page_url = driver.current_url.split('?')[0]
-			SendMessage(context, {
-				"TextPlain": f'"{prompt}"\n{{{page_url}}}',
-				"TextMarkdown": (f'"_{CharEscape(prompt, "MARKDOWN")}_"\n' + MarkdownCode(page_url, True)),
-				"media": img_array,
-			})
+			SendMessage(context, OutputMessageData(
+				text_plain=f'"{prompt}"\n{{{page_url}}}',
+				text_html=f'"<i>{html_escape(prompt)}</i>"\n<pre>{page_url}</pre>',
+				media=img_array))
 			return closeSelenium(driver_index, driver)
 		raise Exception("VM timed out.")
 	except Exception as error:
@@ -87,8 +85,7 @@ def cDalleSelenium(context:EventContext, data:InputMessageData) -> None:
 		closeSelenium(driver_index, driver)
 
 def cCraiyonSelenium(context:EventContext, data:InputMessageData) -> None:
-	prompt = data.command.body
-	if not prompt:
+	if not (prompt := data.command.body):
 		return SendMessage(context, {"Text": "Please tell me what to generate."})
 	driver_index, driver = None, None
 	try:

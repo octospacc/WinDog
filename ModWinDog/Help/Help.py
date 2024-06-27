@@ -5,17 +5,18 @@
 
 # TODO: implement /help <commandname> feature
 def cHelp(context:EventContext, data:InputMessageData) -> None:
-	moduleList = ''
+	module_list = ''
+	language = data.user.settings.language
 	for module in Modules:
-		summary = Modules[module].summary
+		summary = Modules[module].get_string("summary", language)#summary
 		endpoints = Modules[module].endpoints
-		moduleList += (f"\n\n{module}" + (f": {summary}" if summary else ''))
+		module_list += (f"\n\n{module}" + (f": {summary}" if summary else ''))
 		for endpoint in endpoints:
-			summary = endpoint.summary
-			moduleList += (f"\n* /{', /'.join(endpoint.names)}" + (f": {summary}" if summary else ''))
-	SendMessage(context, {"Text": f"[ Available Modules ]{moduleList}"})
+			summary = Modules[module].get_string(f"endpoints.{endpoint.names[0]}.summary", language)
+			module_list += (f"\n* /{', /'.join(endpoint.names)}" + (f": {summary}" if summary else ''))
+	SendMessage(context, OutputMessageData(text=module_list))
 
 RegisterModule(name="Help", group="Basic", endpoints=[
-	SafeNamespace(names=["help"], summary="Provides help for the bot. For now, it just lists the commands.", handler=cHelp),
+	SafeNamespace(names=["help"], handler=cHelp),
 ])
 

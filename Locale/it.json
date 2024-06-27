@@ -1,15 +1,7 @@
 {
-	"start": [
-		"*Ciao* {0}*!*\n\nUsa /help per leggere la lista dei comandi."
-	],
 	"help": [
 		"*Non c'è nessuno qui ad aiutarti (per ora).*"
 	],
-	"echo": {
-		"empty": [
-			"*Echo cosa? Dimmi qualcosa da ripetere.*"
-		]
-	},
 	"wish": {
 		"empty": [
 			"*Non hai desiderato nulla! ✨*\n\n_Non succede niente..._"

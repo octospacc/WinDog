@@ -8,13 +8,15 @@ import json, time
 from binascii import hexlify
 from glob import glob
 from hashlib import new as hashlib_new
+from html import escape as html_escape, unescape as html_unescape
 from os import listdir
 from os.path import isfile, isdir
-from random import choice, randint
+from random import choice, choice as randchoice, randint
+from threading import Thread
 from traceback import format_exc
+from urllib import parse as urlparse
 from yaml import load as yaml_load, BaseLoader as yaml_BaseLoader
 from bs4 import BeautifulSoup
-from html import unescape as HtmlUnescape
 from markdown import markdown
 from LibWinDog.Types import *
 from LibWinDog.Config import *
@@ -98,16 +100,20 @@ def ObjGet(node:object, query:str, /) -> any:
 			return None
 	return node
 
-def isinstanceSafe(clazz:any, instance:any) -> bool:
+def isinstanceSafe(clazz:any, instance:any, /) -> bool:
 	if instance != None:
 		return isinstance(clazz, instance)
 	return False
 
-def GetString(bank:dict, query:str|dict, lang:str=None):
+def get_string(bank:dict, query:str|dict, lang:str=None, /):
 	if not (result := ObjGet(bank, f"{query}.{lang or DefaultLang}")):
 		if not (result := ObjGet(bank, f"{query}.en")):
-			result = tuple(ObjGet(bank, query).values())[0]
+			result = ObjGet(bank, query)
 	return result
+
+def strip_url_scheme(url:str) -> str:
+	tokens = urlparse.urlparse(url)
+	return f"{tokens.netloc}{tokens.path}"
 
 def CharEscape(String:str, Escape:str='') -> str:
 	if Escape == 'MARKDOWN':
@@ -128,9 +134,6 @@ def InferMdEscape(raw:str, plain:str) -> str:
 			chars += char
 	return chars
 
-def MarkdownCode(text:str, block:bool) -> str:
-	return ('```\n' + text.strip().replace('`', '\`') + '\n```')
-
 def MdToTxt(md:str) -> str:
 	return BeautifulSoup(markdown(md), 'html.parser').get_text(' ')
 
@@ -140,23 +143,6 @@ def HtmlEscapeFull(Raw:str) -> str:
 	for i in range(0, len(Hex), 2):
 		New += f'&#x{Hex[i] + Hex[i+1]};'
 	return New
-
-def GetRawTokens(text:str) -> list:
-	return text.strip().replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')
-
-def ParseCmd(msg) -> SafeNamespace|None:
-	#if not len(msg) or msg[1] not in CmdPrefixes:
-	#	return
-	name = msg.replace('\n', ' ').replace('\t', ' ').replace('  ', ' ').replace('  ', ' ').split(' ')[0][1:].split('@')[0]
-	#if not name:
-	#	return
-	return SafeNamespace(**{
-		"Name": name.lower(),
-		"Body": name.join(msg.split(name)[1:]).strip(),
-		"Tokens": GetRawTokens(msg),
-		"User": None,
-		"Quoted": None,
-	})
 
 def GetWeightedText(*texts) -> str|None:
 	for text in texts:
@@ -179,6 +165,7 @@ def GetUserSettings(user_id:str) -> SafeNamespace|None:
 	except EntitySettings.DoesNotExist:
 		return None
 
+# TODO handle @ characters attached to command, e.g. on telegram
 def ParseCommand(text:str) -> SafeNamespace|None:
 	if not text:
 		return None
@@ -227,8 +214,8 @@ def UpdateUserDb(user:SafeNamespace) -> None:
 def DumpMessage(data:InputMessageData) -> None:
 	if not (Debug and (DumpToFile or DumpToConsole)):
 		return
-	text = (data.text_auto.replace('\n', '\\n') if data.text_auto else '')
-	text = f"[{int(time.time())}] [{time.ctime()}] [{data.room.id}] [{data.message_id}] [{data.user.id}] {text}"
+	text = (data.text_plain.replace('\n', '\\n') if data.text_auto else '')
+	text = f"[{int(time.time())}] [{time.ctime()}] [{data.room and data.room.id}] [{data.message_id}] [{data.user.id}] {text}"
 	if DumpToConsole:
 		print(text, data)
 	if DumpToFile:
@@ -247,13 +234,13 @@ def SendMessage(context:EventContext, data:OutputMessageData, destination=None) 
 
 	if data.text_plain or data.text_markdown or data.text_html:
 		if data.text_html and not data.text_plain:
-			data.text_plain = data.text_html # TODO flatten the HTML to plaintext
+			data.text_plain = BeautifulSoup(data.text_html, "html.parser").get_text()
 		elif data.text_markdown and not data.text_plain:
 			data.text_plain = data.text_markdown
 	elif data.text:
 		# our old system attempts to always receive Markdown and retransform when needed
 		data.text_plain = MdToTxt(data.text)
-		data.text_markdown = CharEscape(HtmlUnescape(data.text), InferMdEscape(HtmlUnescape(data.text), data.text_plain))
+		data.text_markdown = CharEscape(html_unescape(data.text), InferMdEscape(html_unescape(data.text), data.text_plain))
 		#data.text_html = ???
 	if data.media:
 		data.media = SureArray(data.media)
@@ -272,10 +259,10 @@ def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=N
 	Log(f"{name}, ", inline=True)
 
 def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str|None=None) -> None:
-	module = SafeNamespace(group=group, endpoints=endpoints)
+	module = SafeNamespace(group=group, endpoints=endpoints, get_string=(lambda query, lang=None, /: None))
 	if isfile(file := f"./ModWinDog/{name}/{name}.yaml"):
 		module.strings = yaml_load(open(file, 'r').read().replace("\t", "    "), Loader=yaml_BaseLoader)
-		module.get_string = (lambda query, lang=None: GetString(module.strings, query, lang))
+		module.get_string = (lambda query, lang=None: get_string(module.strings, query, lang))
 	Modules[name] = module
 	Log(f"{name}, ", inline=True)
 	for endpoint in endpoints:
@@ -287,7 +274,7 @@ def CallEndpoint(name:str, context:EventContext, data:InputMessageData):
 	endpoint = Endpoints[name]
 	context.endpoint = endpoint
 	context.module = endpoint.module
-	context.endpoint.get_string = (lambda query, lang=None: endpoint.module.get_string(f"endpoints.{data.command.name}.{query}", lang))
+	context.endpoint.get_string = (lambda query, lang=None, /: endpoint.module.get_string(f"endpoints.{data.command.name}.{query}", lang))
 	return endpoint.handler(context, data)
 
 def WriteNewConfig() -> None:

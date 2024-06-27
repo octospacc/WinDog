@@ -4,8 +4,8 @@
 # ==================================== #
 
 def mPercenter(context:EventContext, data:InputMessageData) -> None:
-	SendMessage(context, {"Text": choice(Locale.__(f'{data.Name}.{"done" if data.Body else "empty"}')).format(
-		Cmd=data.Tokens[0], Percent=RandPercent(), Thing=data.Body)})
+	SendMessage(context, {"Text": choice(Locale.__(f'{data.command.name}.{"done" if data.command.body else "empty"}')).format(
+		Cmd=data.command.tokens[0], Percent=RandPercent(), Thing=data.command.body)})
 
 RegisterModule(name="Percenter", endpoints=[
 	SafeNamespace(names=["wish", "level"], summary="Provides fun trough percentage-based toys.", handler=mPercenter),

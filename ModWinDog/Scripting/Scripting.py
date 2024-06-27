@@ -25,7 +25,7 @@ def luaAttributeFilter(obj, attr_name, is_setting):
 # TODO make print behave the same as normal Lua, and expose a function for printing without newlines
 def cLua(context:EventContext, data:InputMessageData) -> None:
 	# TODO update quoted api getting
-	scriptText = (data.command.body or (data.Quoted and data.Quoted.Body))
+	scriptText = (data.command.body or (data.quoted and data.quoted.text_plain))
 	if not scriptText:
 		return SendMessage(context, {"Text": "You must provide some Lua code to execute."})
 	luaRuntime = NewLuaRuntime(max_memory=LuaMemoryLimit, register_eval=False, register_builtins=False, attribute_filter=luaAttributeFilter)

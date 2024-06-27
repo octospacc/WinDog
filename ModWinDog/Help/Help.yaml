@@ -1,0 +1,5 @@
+endpoints:
+	help:
+		summary:
+			en: Provides help for the bot. For now, it just lists the commands.
+

@@ -1,14 +1,15 @@
 summary:
 	en: Functions for calculating hashes of content.
 	it: Funzioni per calcolare hash di contenuti.
-hash:
-	summary:
-		en: Responds with the hash-sum of the received message.
-	arguments:
-		algorithm:
-			en: Algorithm
-			it: Algoritmo
-		body:
-			en: Text to hash
-			it: Testo da hashare
+endpoints:
+	hash:
+		summary:
+			en: Responds with the hash-sum of the received message.
+		arguments:
+			algorithm:
+				en: Algorithm
+				it: Algoritmo
+			body:
+				en: Text to hash
+				it: Testo da hashare
 

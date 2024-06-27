@@ -1,15 +1,7 @@
 {
-	"start": [
-		"*Hi* {0}*!*\n\nUse /help to read a list of available commands."
-	],
 	"help": [
 		"*There's no one around to help (yet).*"
 	],
-	"echo": {
-		"empty": [
-			"*Echo what? Give me something to repeat.*"
-		]
-	},
 	"wish": {
 		"empty": [
 			"*You wished for nothing! ✨*\n\n_Nothing happens..._"

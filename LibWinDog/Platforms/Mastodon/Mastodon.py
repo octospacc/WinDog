@@ -22,29 +22,42 @@ def MastodonMain() -> bool:
 	Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
 	class MastodonListener(mastodon.StreamListener):
 		def on_notification(self, event):
-			MastodonHandler(event)
+			MastodonHandler(event, Mastodon)
 	Mastodon.stream_user(MastodonListener(), run_async=True)
 	return True
 
-def MastodonHandler(event):
-	if event['type'] == 'mention':
-		#OnMessageParsed()
-		message = BeautifulSoup(event['status']['content'], 'html.parser').get_text(' ').strip().replace('\t', ' ')
-		if not message.split('@')[0]:
-			message = ' '.join('@'.join(message.split('@')[1:]).strip().split(' ')[1:]).strip()
-		if message[0] in CmdPrefixes:
-			command = ParseCmd(message)
-			if command:
-				command.messageId = event['status']['id']
-				if command.Name in Endpoints:
-					CallEndpoint(command.Name, EventContext(platform="mastodon", event=event, manager=Mastodon), command)
+def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
+	data = InputMessageData(
+		message_id = ("mastodon:" + strip_url_scheme(status["uri"])),
+		text_html = status["content"],
+	)
+	data.text_plain = BeautifulSoup(data.text_html, "html.parser").get_text()
+	data.text_auto = GetWeightedText(data.text_html, data.text_plain)
+	command_tokens = data.text_plain.strip().replace("\t", " ").split(" ")
+	while command_tokens[0].strip().startswith('@') or not command_tokens[0]:
+		command_tokens.pop(0)
+	data.command = ParseCommand(" ".join(command_tokens))
+	data.user = SafeNamespace(
+		id = ("mastodon:" + strip_url_scheme(status["account"]["uri"])),
+		name = status["account"]["display_name"],
+	)
+	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
+	return data
+
+def MastodonHandler(event, Mastodon):
+	if event["type"] == "mention":
+		data = MastodonMakeInputMessageData(event["status"])
+		OnMessageParsed(data)
+		if (command := ObjGet(data, "command.name")):
+			CallEndpoint(command, EventContext(platform="mastodon", event=event, manager=Mastodon), data)
 
 def MastodonSender(context:EventContext, data:OutputMessageData, destination) -> None:
 	media_results = None
 	if data.media:
 		media_results = []
-		for medium in data.media[:4]: # Mastodon limits posts to 4 attachments
-			medium_result = context.manager.media_post(medium, Magic(mime=True).from_buffer(medium))
+		# TODO support media by url (do we have to upload them or can just pass the original URL?)
+		for medium in data.media[:4]: # Mastodon limits posts to 4 attachments, so we drop any more
+			medium_result = context.manager.media_post(medium["bytes"], Magic(mime=True).from_buffer(medium["bytes"]))
 			while medium_result["url"] == "null":
 				medium_result = context.manager.media(medium_result)
 			media_results.append(medium_result)
