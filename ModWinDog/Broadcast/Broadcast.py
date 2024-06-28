@@ -13,7 +13,7 @@ def cBroadcast(context:EventContext, data:InputMessageData) -> None:
 	SendMessage(context, {"TextPlain": "Executed."})
 
 RegisterModule(name="Broadcast", endpoints=[
-	SafeNamespace(names=["broadcast"], summary="Sends an admin message over to any chat destination.", handler=cBroadcast, arguments={
+	SafeNamespace(names=["broadcast"], handler=cBroadcast, arguments={
 		"destination": True,
 	}),
 ])

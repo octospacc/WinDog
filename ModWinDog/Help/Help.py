@@ -8,7 +8,7 @@ def cHelp(context:EventContext, data:InputMessageData) -> None:
 	module_list = ''
 	language = data.user.settings.language
 	for module in Modules:
-		summary = Modules[module].get_string("summary", language)#summary
+		summary = Modules[module].get_string("summary", language)
 		endpoints = Modules[module].endpoints
 		module_list += (f"\n\n{module}" + (f": {summary}" if summary else ''))
 		for endpoint in endpoints:

@@ -1,0 +1,5 @@
+endpoints:
+	broadcast:
+		summary:
+			en: Sends an admin message over to any chat destination.
+

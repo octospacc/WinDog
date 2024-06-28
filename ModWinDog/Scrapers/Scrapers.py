@@ -119,7 +119,7 @@ def cCraiyonSelenium(context:EventContext, data:InputMessageData) -> None:
 		closeSelenium(driver_index, driver)
 
 RegisterModule(name="Scrapers", endpoints=[
-	SafeNamespace(names=["dalle"], summary="Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.", handler=cDalleSelenium),
-	SafeNamespace(names=["craiyon", "crayion"], summary="Sends an AI-generated picture from Craiyon.com.", handler=cCraiyonSelenium),
+	SafeNamespace(names=["dalle"], handler=cDalleSelenium),
+	SafeNamespace(names=["craiyon", "crayion"], handler=cCraiyonSelenium),
 ])
 

@@ -17,7 +17,7 @@ def cGpt(context:EventContext, data:InputMessageData) -> None:
 			output += (completion.choices[0].delta.content or "")
 	return SendMessage(context, {"TextPlain": f"[🤖️ GPT]\n\n{output}"})
 
-RegisterModule(name="ChatGPT", endpoints=[
-	SafeNamespace(names=["gpt", "chatgpt"], summary="Sends a message to GPT to get back a response. Note: conversations are not yet supported, and this is more standard GPT than ChatGPT, and in general there are many bugs!", handler=cGpt),
+RegisterModule(name="GPT", endpoints=[
+	SafeNamespace(names=["gpt", "chatgpt"], handler=cGpt),
 ])
 

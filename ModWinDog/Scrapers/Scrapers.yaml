@@ -1,0 +1,8 @@
+endpoints:
+	dalle:
+		summary:
+			en: Sends an AI-generated picture from DALL-E 3 via Microsoft Bing.
+	craiyon:
+		summary:
+			en: Sends an AI-generated picture from Craiyon.com.
+

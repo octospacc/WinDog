@@ -1,0 +1,8 @@
+endpoints:
+	source:
+		summary:
+			en: Provides a copy of the bot source codes and/or instructions on how to get it.
+	ping:
+		summary:
+			en: Responds pong, useful for testing messaging latency.
+

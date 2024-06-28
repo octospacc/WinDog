@@ -1,3 +1,8 @@
+# ================================== #
+# WinDog multi-purpose chatbot       #
+# Licensed under AGPLv3 by OctoSpacc #
+# ================================== #
+
 from types import SimpleNamespace
 
 class SafeNamespace(SimpleNamespace):

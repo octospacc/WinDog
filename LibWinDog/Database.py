@@ -1,3 +1,8 @@
+# ================================== #
+# WinDog multi-purpose chatbot       #
+# Licensed under AGPLv3 by OctoSpacc #
+# ================================== #
+
 from peewee import *
 from LibWinDog.Types import *
 

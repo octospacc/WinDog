@@ -1,7 +1,7 @@
-# ==================================== #
-#  WinDog multi-purpose chatbot        #
-#  Licensed under AGPLv3 by OctoSpacc  #
-# ==================================== #
+# ================================== #
+# WinDog multi-purpose chatbot       #
+# Licensed under AGPLv3 by OctoSpacc #
+# ================================== #
 
 def mMultifun(context:EventContext, data:InputMessageData) -> None:
 	cmdkey = data.command.name
@@ -23,6 +23,6 @@ def mMultifun(context:EventContext, data:InputMessageData) -> None:
 	SendMessage(context, {"Text": Text, "ReplyTo": replyToId})
 
 RegisterModule(name="Multifun", endpoints=[
-	SafeNamespace(names=["hug", "pat", "poke", "cuddle", "hands", "floor", "sessocto"], summary="Provides fun trough preprogrammed-text-based toys.", handler=mMultifun),
+	SafeNamespace(names=["hug", "pat", "poke", "cuddle", "hands", "floor", "sessocto"], handler=mMultifun),
 ])
 

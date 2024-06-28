@@ -1,0 +1,7 @@
+summary:
+	en: Tools for programming the bot and expanding its features.
+endpoints:
+	lua:
+		summary:
+			en: Execute a Lua snippet and get its output.
+

@@ -165,7 +165,7 @@ def GetUserSettings(user_id:str) -> SafeNamespace|None:
 	except EntitySettings.DoesNotExist:
 		return None
 
-# TODO handle @ characters attached to command, e.g. on telegram
+# TODO ignore tagged commands when they are not directed to the bot's username
 def ParseCommand(text:str) -> SafeNamespace|None:
 	if not text:
 		return None
@@ -176,8 +176,8 @@ def ParseCommand(text:str) -> SafeNamespace|None:
 	except IndexError:
 		return None
 	command = SafeNamespace()
-	command.tokens = text.replace("\r", " ").replace("\n", " ").replace("\t", " ").replace("  ", " ").replace("  ", " ").split(" ")
-	command.name = command.tokens[0][1:].lower()
+	command.tokens = text.split()
+	command.name = command.tokens[0][1:].lower().split('@')[0]
 	command.body = text[len(command.tokens[0]):].strip()
 	if command.name not in Endpoints:
 		return command
@@ -244,9 +244,10 @@ def SendMessage(context:EventContext, data:OutputMessageData, destination=None) 
 		#data.text_html = ???
 	if data.media:
 		data.media = SureArray(data.media)
-	for platform in Platforms.values():
-		if isinstanceSafe(context.event, platform.eventClass) or isinstanceSafe(context.manager, platform.managerClass):
-			return platform.sender(context, data, destination)
+	#for platform in Platforms.values():
+	#	if isinstanceSafe(context.event, platform.eventClass) or isinstanceSafe(context.manager, platform.managerClass):
+	#		return platform.sender(context, data, destination)
+	return Platforms[context.platform].sender(context, data, destination)
 
 def SendNotice(context:EventContext, data) -> None:
 	pass
@@ -255,10 +256,10 @@ def DeleteMessage(context:EventContext, data) -> None:
 	pass
 
 def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, eventClass=None, managerClass=None) -> None:
-	Platforms[name] = SafeNamespace(main=main, sender=sender, linker=linker, eventClass=eventClass, managerClass=managerClass)
+	Platforms[name.lower()] = SafeNamespace(main=main, sender=sender, linker=linker, eventClass=eventClass, managerClass=managerClass)
 	Log(f"{name}, ", inline=True)
 
-def RegisterModule(name:str, endpoints:dict, *, group:str|None=None, summary:str|None=None) -> None:
+def RegisterModule(name:str, endpoints:dict, *, group:str|None=None) -> None:
 	module = SafeNamespace(group=group, endpoints=endpoints, get_string=(lambda query, lang=None, /: None))
 	if isfile(file := f"./ModWinDog/{name}/{name}.yaml"):
 		module.strings = yaml_load(open(file, 'r').read().replace("\t", "    "), Loader=yaml_BaseLoader)

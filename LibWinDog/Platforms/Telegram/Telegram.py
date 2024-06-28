@@ -35,22 +35,23 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 	#	return None
 	data = InputMessageData(
 		message_id = f"telegram:{message.message_id}",
+		datetime = int(time.mktime(message.date.timetuple())),
 		text_plain = message.text,
 		text_markdown = message.text_markdown_v2,
+		user = SafeNamespace(
+			id = f"telegram:{message.from_user.id}",
+			tag = message.from_user.username,
+			name = message.from_user.first_name,
+		),
+		room = SafeNamespace(
+			id = f"telegram:{message.chat.id}",
+			tag = message.chat.username,
+			name = (message.chat.title or message.chat.first_name),
+		),
 	)
 	data.text_auto = GetWeightedText(data.text_markdown, data.text_plain)
 	data.command = ParseCommand(data.text_plain)
-	data.user = SafeNamespace(
-		id = f"telegram:{message.from_user.id}",
-		tag = message.from_user.username,
-		name = message.from_user.first_name,
-	)
 	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
-	data.room = SafeNamespace(
-		id = f"telegram:{message.chat.id}",
-		tag = message.chat.username,
-		name = (message.chat.title or message.chat.first_name),
-	)
 	linked = TelegramLinker(data)
 	data.message_url = linked.message
 	data.room.url = linked.room

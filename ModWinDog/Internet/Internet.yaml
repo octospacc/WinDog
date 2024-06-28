@@ -1,0 +1,16 @@
+summary:
+	en: Tools and toys related to the Internet.
+endpoints:
+	embedded:
+		summary:
+			en: Rewrite a link, bypassing embed view protections for known sites.
+	web:
+		summary:
+			en: Provides results of a DuckDuckGo search.
+	translate:
+		summary:
+			en: Returns the received message after translating it in another language.
+	safebooru:
+		summary:
+			en: Sends a picture sourced from Safebooru.
+

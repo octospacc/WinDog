@@ -8,6 +8,6 @@ def mPercenter(context:EventContext, data:InputMessageData) -> None:
 		Cmd=data.command.tokens[0], Percent=RandPercent(), Thing=data.command.body)})
 
 RegisterModule(name="Percenter", endpoints=[
-	SafeNamespace(names=["wish", "level"], summary="Provides fun trough percentage-based toys.", handler=mPercenter),
+	SafeNamespace(names=["wish", "level"], handler=mPercenter),
 ])
 
