@@ -10,7 +10,7 @@
 
 # end windog config # """
 
-MastodonUrl, MastodonToken = None, None
+MastodonUrl = MastodonToken = None
 
 import mastodon
 from bs4 import BeautifulSoup
@@ -32,7 +32,6 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 		text_html = status["content"],
 	)
 	data.text_plain = BeautifulSoup(data.text_html, "html.parser").get_text()
-	data.text_auto = GetWeightedText(data.text_html, data.text_plain)
 	command_tokens = data.text_plain.strip().replace("\t", " ").split(" ")
 	while command_tokens[0].strip().startswith('@') or not command_tokens[0]:
 		command_tokens.pop(0)
@@ -51,7 +50,7 @@ def MastodonHandler(event, Mastodon):
 		if (command := ObjGet(data, "command.name")):
 			CallEndpoint(command, EventContext(platform="mastodon", event=event, manager=Mastodon), data)
 
-def MastodonSender(context:EventContext, data:OutputMessageData, destination) -> None:
+def MastodonSender(context:EventContext, data:OutputMessageData) -> None:
 	media_results = None
 	if data.media:
 		media_results = []
@@ -69,5 +68,5 @@ def MastodonSender(context:EventContext, data:OutputMessageData, destination) ->
 			visibility=('direct' if context.event['status']['visibility'] == 'direct' else 'unlisted'),
 		)
 
-RegisterPlatform(name="Mastodon", main=MastodonMain, sender=MastodonSender, managerClass=mastodon.Mastodon)
+RegisterPlatform(name="Mastodon", main=MastodonMain, sender=MastodonSender, manager_class=mastodon.Mastodon)
 

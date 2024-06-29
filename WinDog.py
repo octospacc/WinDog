@@ -13,8 +13,8 @@ from os import listdir
 from os.path import isfile, isdir
 from random import choice, choice as randchoice, randint
 from threading import Thread
-from traceback import format_exc
-from urllib import parse as urlparse
+from traceback import format_exc, format_exc as traceback_format_exc
+from urllib import parse as urlparse, urllib_parse
 from yaml import load as yaml_load, BaseLoader as yaml_BaseLoader
 from bs4 import BeautifulSoup
 from markdown import markdown
@@ -25,12 +25,16 @@ from LibWinDog.Database import *
 # <https://daringfireball.net/projects/markdown/syntax#backslash>
 MdEscapes = '\\`*_{}[]()<>#+-.!|='
 
-def NamespaceUnion(namespaces:list|tuple, clazz=SimpleNamespace):
+def ObjectUnion(*objects:object, clazz:object=None):
 	dikt = {}
-	for namespace in namespaces:
-		for key, value in tuple(namespace.__dict__.items()):
+	auto_clazz = None
+	for obj in objects:
+		if type(obj) == dict:
+			obj = (clazz or SafeNamespace)(**obj)
+		for key, value in tuple(obj.__dict__.items()):
 			dikt[key] = value
-	return clazz(**dikt)
+		auto_clazz = obj.__class__
+	return (clazz or auto_clazz)(**dikt)
 
 def Log(text:str, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
 	endline = '\n'
@@ -53,13 +57,13 @@ def SetupLocales() -> None:
 			Log(f'Cannot load {lang} locale, exiting.')
 			raise
 			exit(1)
-	for key in Locale[DefaultLang]:
-		Locale['Fallback'][key] = Locale[DefaultLang][key]
+	for key in Locale[DefaultLanguage]:
+		Locale['Fallback'][key] = Locale[DefaultLanguage][key]
 	for lang in Locale:
 		for key in Locale[lang]:
 			if not key in Locale['Fallback']:
 				Locale['Fallback'][key] = Locale[lang][key]
-	def querier(query:str, lang:str=DefaultLang):
+	def querier(query:str, lang:str=DefaultLanguage):
 		value = None
 		query = query.split('.')
 		try:
@@ -106,7 +110,7 @@ def isinstanceSafe(clazz:any, instance:any, /) -> bool:
 	return False
 
 def get_string(bank:dict, query:str|dict, lang:str=None, /):
-	if not (result := ObjGet(bank, f"{query}.{lang or DefaultLang}")):
+	if not (result := ObjGet(bank, f"{query}.{lang or DefaultLanguage}")):
 		if not (result := ObjGet(bank, f"{query}.en")):
 			result = ObjGet(bank, query)
 	return result
@@ -199,6 +203,13 @@ def ParseCommand(text:str) -> SafeNamespace|None:
 def OnMessageParsed(data:InputMessageData) -> None:
 	DumpMessage(data)
 	UpdateUserDb(data.user)
+	for bridge in BridgesConfig:
+		if data.room.id in bridge:
+			rooms = list(bridge)
+			rooms.remove(data.room.id)
+			for room in rooms:
+				tokens = room.split(':')
+				SendMessage(SafeNamespace(platform=tokens[0]), ObjectUnion(data, {"room_id": ':'.join(tokens)}))
 
 def UpdateUserDb(user:SafeNamespace) -> None:
 	try:
@@ -214,14 +225,14 @@ def UpdateUserDb(user:SafeNamespace) -> None:
 def DumpMessage(data:InputMessageData) -> None:
 	if not (Debug and (DumpToFile or DumpToConsole)):
 		return
-	text = (data.text_plain.replace('\n', '\\n') if data.text_auto else '')
+	text = (data.text_plain.replace('\n', '\\n') if data.text_plain else '')
 	text = f"[{int(time.time())}] [{time.ctime()}] [{data.room and data.room.id}] [{data.message_id}] [{data.user.id}] {text}"
 	if DumpToConsole:
 		print(text, data)
 	if DumpToFile:
 		open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Dump.txt"), 'a').write(text + '\n')
 
-def SendMessage(context:EventContext, data:OutputMessageData, destination=None) -> None:
+def SendMessage(context:EventContext, data:OutputMessageData) -> None:
 	data = (OutputMessageData(**data) if type(data) == dict else data)
 
 	# TODO remove this after all modules are changed
@@ -244,10 +255,18 @@ def SendMessage(context:EventContext, data:OutputMessageData, destination=None) 
 		#data.text_html = ???
 	if data.media:
 		data.media = SureArray(data.media)
-	#for platform in Platforms.values():
-	#	if isinstanceSafe(context.event, platform.eventClass) or isinstanceSafe(context.manager, platform.managerClass):
-	#		return platform.sender(context, data, destination)
-	return Platforms[context.platform].sender(context, data, destination)
+	if data.room_id:
+		tokens = data.room_id.split(':')
+		if tokens[0] != context.platform:
+			context.platform = tokens[0]
+			context.manager = context.event = None
+		data.room_id = ':'.join(tokens[1:])
+	if context.platform not in Platforms:
+		return None
+	platform = Platforms[context.platform]
+	if (not context.manager) and (manager := platform.manager_class):
+		context.manager = (manager() if callable(manager) else manager)
+	return platform.sender(context, data)
 
 def SendNotice(context:EventContext, data) -> None:
 	pass
@@ -255,8 +274,8 @@ def SendNotice(context:EventContext, data) -> None:
 def DeleteMessage(context:EventContext, data) -> None:
 	pass
 
-def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, eventClass=None, managerClass=None) -> None:
-	Platforms[name.lower()] = SafeNamespace(main=main, sender=sender, linker=linker, eventClass=eventClass, managerClass=managerClass)
+def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None) -> None:
+	Platforms[name.lower()] = SafeNamespace(main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class)
 	Log(f"{name}, ", inline=True)
 
 def RegisterModule(name:str, endpoints:dict, *, group:str|None=None) -> None:

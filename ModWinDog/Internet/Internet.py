@@ -18,15 +18,15 @@ def HttpReq(url:str, method:str|None=None, *, body:bytes=None, headers:dict[str,
 def cEmbedded(context:EventContext, data:InputMessageData) -> None:
 	if len(data.command.tokens) >= 2:
 		# Find links in command body
-		Text = (data.text_markdown + ' ' + data.text_plain)
-	elif data.quoted and data.quoted.text_auto:
+		text = (data.text_markdown + ' ' + data.text_plain)
+	elif (quoted := data.quoted) and (quoted.text_auto or quoted.text_markdown or quoted.text_html):
 		# Find links in quoted message
-		Text = (data.quoted.text_markdown + ' ' + data.quoted.text_plain)
+		text = ((quoted.text_markdown or '') + ' ' + (quoted.text_plain or '') + ' ' + (quoted.text_html or ''))
 	else:
 		# TODO Error message
 		return
 	pass
-	urls = URLExtract().find_urls(Text)
+	urls = URLExtract().find_urls(text)
 	if len(urls) > 0:
 		proto = 'https://'
 		url = urls[0]
@@ -47,7 +47,7 @@ def cEmbedded(context:EventContext, data:InputMessageData) -> None:
 			elif urlDomain == "vm.tiktok.com":
 				urlDomain = "vm.vxtiktok.com"
 			url = (urlDomain + '/' + '/'.join(url.split('/')[1:]))
-		SendMessage(context, {"TextPlain": f"{{{proto}{url}}}"})
+		SendMessage(context, {"text_plain": f"{{{proto}{url}}}"})
 	# else TODO error message?
 
 def cWeb(context:EventContext, data:InputMessageData) -> None:
@@ -79,13 +79,13 @@ def cNews(context:EventContext, data:InputMessageData) -> None:
 	pass
 
 def cTranslate(context:EventContext, data:InputMessageData) -> None:
+	instances = ["lingva.ml", "lingva.lunar.icu"]
 	language_to = data.command.arguments["language_to"]
 	text_input = (data.command.body or (data.quoted and data.quoted.text_plain))
 	if not (text_input and language_to):
 		return SendMessage(context, {"TextPlain": f"Usage: /translate <to language> <text>"})
 	try:
-		# TODO: Use many different public Lingva instances in rotation to avoid overloading a specific one
-		result = json.loads(HttpReq(f'https://lingva.ml/api/v1/auto/{language_to}/{urlparse.quote(text_input)}').read())
+		result = json.loads(HttpReq(f'https://{randchoice(instances)}/api/v1/auto/{language_to}/{urlparse.quote(text_input)}').read())
 		SendMessage(context, {"TextPlain": f"[{result['info']['detectedSource']} (auto) -> {language_to}]\n\n{result['translation']}"})
 	except Exception:
 		raise

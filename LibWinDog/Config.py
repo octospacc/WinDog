@@ -15,13 +15,13 @@ LogToFile = True
 DumpToConsole = False
 DumpToFile = False
 
-AdminIds = [ "telegram:123456789", "telegram:634314973", "activitypub:admin@mastodon.example.com", ]
+AdminIds = [ "telegram:123456789", "telegram:634314973", "matrix:@admin:matrix.example.com", "matrix:@octt:matrix.org", "activitypub:admin@mastodon.example.com", ]
 
-DefaultLang = "en"
+BridgesConfig = []
+
+DefaultLanguage = "en"
 Debug = False
 CmdPrefixes = ".!/"
-# False: ASCII output; True: ANSI Output (must be escaped)
-ExecAllowed = {"date": False, "fortune": False, "neofetch": True, "uptime": False}
 WebUserAgent = "WinDog v.Staging"
 
 #ModuleGroups = (ModuleGroups | {

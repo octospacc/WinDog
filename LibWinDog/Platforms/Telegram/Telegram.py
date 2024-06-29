@@ -12,19 +12,21 @@
 TelegramToken = None
 
 import telegram, telegram.ext
-from telegram import ForceReply, Bot #, Update
+from telegram import Bot #, Update
 #from telegram.helpers import escape_markdown
 #from telegram.ext import Application, filters, CommandHandler, MessageHandler, CallbackContext
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 
+TelegramClient = None
+
 def TelegramMain() -> bool:
 	if not TelegramToken:
 		return False
-	updater = telegram.ext.Updater(TelegramToken)
-	dispatcher = updater.dispatcher
-	dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramHandler))
-	updater.start_polling()
+	global TelegramClient
+	TelegramClient = telegram.ext.Updater(TelegramToken)
+	TelegramClient.dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, TelegramHandler))
+	TelegramClient.start_polling()
 	#app = Application.builder().token(TelegramToken).build()
 	#app.add_handler(MessageHandler(filters.TEXT | filters.COMMAND, TelegramHandler))
 	#app.run_polling(allowed_updates=Update.ALL_TYPES)
@@ -49,7 +51,6 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 			name = (message.chat.title or message.chat.first_name),
 		),
 	)
-	data.text_auto = GetWeightedText(data.text_markdown, data.text_plain)
 	data.command = ParseCommand(data.text_plain)
 	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
 	linked = TelegramLinker(data)
@@ -69,10 +70,10 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 			CallEndpoint(command, EventContext(platform="telegram", event=update, manager=context), data)
 	Thread(target=handler).start()
 
-def TelegramSender(context:EventContext, data:OutputMessageData, destination):
+def TelegramSender(context:EventContext, data:OutputMessageData):
 	result = None
-	if destination:
-		result = context.manager.bot.send_message(destination, text=data.text_plain)
+	if data.room_id:
+		result = context.manager.bot.send_message(data.room_id, text=data.text_plain)
 	else:
 		replyToId = (data.ReplyTo or context.event.message.message_id)
 		if data.media:
@@ -103,5 +104,5 @@ def TelegramLinker(data:InputMessageData) -> SafeNamespace:
 				linked.message = f"https://t.me/c/{room_id}/{message_id}"
 	return linked
 
-RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, linker=TelegramLinker, eventClass=telegram.Update)
+RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, linker=TelegramLinker, event_class=telegram.Update, manager_class=(lambda:TelegramClient))
 

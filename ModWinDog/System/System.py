@@ -3,6 +3,13 @@
 #  Licensed under AGPLv3 by OctoSpacc  #
 # ==================================== #
 
+""" # windog config start # """
+
+# False: ASCII output; True: ANSI Output (must be escaped)
+ExecAllowed = {"date": False, "fortune": False, "neofetch": True, "uptime": False}
+
+""" # end windog config # """
+
 import subprocess
 from re import compile as re_compile
 

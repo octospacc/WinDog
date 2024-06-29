@@ -16,11 +16,14 @@
 
 # end windog config # """
 
-MatrixUrl, MatrixUsername, MatrixPassword, MatrixToken = None, None, None, None
-MatrixClient = None
+MatrixUrl = MatrixUsername = MatrixPassword = MatrixToken = None
 
-from asyncio import run as asyncio_run, create_task as asyncio_create_task
+import asyncio
 import nio
+import queue
+
+MatrixClient = None
+MatrixQueue = []#queue.Queue()
 
 def MatrixMain() -> bool:
 	if not (MatrixUrl and MatrixUsername and (MatrixPassword or MatrixToken)):
@@ -28,6 +31,13 @@ def MatrixMain() -> bool:
 	def upgrade_username(new:str):
 		global MatrixUsername
 		MatrixUsername = new
+	async def queue_handler():
+		asyncio.ensure_future(queue_handler())
+		if not len(MatrixQueue):
+			# avoid 100% CPU usage ☠️
+			time.sleep(0.01)
+		while len(MatrixQueue):
+			MatrixSender(*MatrixQueue.pop(0))
 	async def client_main() -> None:
 		global MatrixClient
 		MatrixClient = nio.AsyncClient(MatrixUrl, MatrixUsername)
@@ -37,9 +47,10 @@ def MatrixMain() -> bool:
 		if (bot_id := ObjGet(login, "user_id")):
 			upgrade_username(bot_id) # ensure username is fully qualified for the API
 		await MatrixClient.sync(30000) # resync old messages first to "skip read ones"
+		asyncio.ensure_future(queue_handler())
 		MatrixClient.add_event_callback(MatrixMessageHandler, nio.RoomMessage)
 		await MatrixClient.sync_forever(timeout=30000)
-	Thread(target=lambda:asyncio_run(client_main())).start()
+	Thread(target=lambda:asyncio.run(client_main())).start()
 	return True
 
 def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> InputMessageData:
@@ -47,7 +58,8 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 		message_id = f"matrix:{event.event_id}",
 		datetime = event.server_timestamp,
 		text_plain = event.body,
-		text_html = event.formatted_body, # note: this could be None
+		text_html = ObjGet(event, "formatted_body"), # this could be unavailable
+		media = ({"url": event.url} if ObjGet(event, "url") else None),
 		room = SafeNamespace(
 			id = f"matrix:{room.room_id}",
 			name = room.display_name,
@@ -69,8 +81,16 @@ async def MatrixMessageHandler(room:nio.MatrixRoom, event:nio.RoomMessage) -> No
 	if (command := ObjGet(data, "command.name")):
 		CallEndpoint(command, EventContext(platform="matrix", event=SafeNamespace(room=room, event=event), manager=MatrixClient), data)
 
-def MatrixSender(context:EventContext, data:OutputMessageData, destination) -> None:
-	asyncio_create_task(context.manager.room_send(room_id=context.event.room.room_id, message_type="m.room.message", content={"msgtype": "m.text", "body": data.text_plain}))
+def MatrixSender(context:EventContext, data:OutputMessageData):
+	try:
+		asyncio.get_event_loop()
+	except RuntimeError:
+		MatrixQueue.append((context, data))
+		return None
+	asyncio.create_task(context.manager.room_send(
+		room_id=(data.room_id or ObjGet(context, "event.room.room_id")),
+		message_type="m.room.message",
+		content={"msgtype": "m.text", "body": data.text_plain}))
 
-RegisterPlatform(name="Matrix", main=MatrixMain, sender=MatrixSender)
+RegisterPlatform(name="Matrix", main=MatrixMain, sender=MatrixSender, manager_class=(lambda:MatrixClient))
 

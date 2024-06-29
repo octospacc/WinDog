@@ -9,6 +9,7 @@ WinDog/WinDogBot is a chatbot I've been (lazily) developing for years, with some
 The officially-hosted instances of this bot are, respectively:
 
 * [@WinDogBot](https://t.me/WinDogBot) on Telegram
+* [@windog:matrix.org](https://matrix.to/#/@windog:matrix.org) on Matrix
 * [@WinDog@botsin.space](https://botsin.space/@WinDog) on Mastodon (can also be used from any other Fediverse platform)
 
 In case you want to run your own instance:
