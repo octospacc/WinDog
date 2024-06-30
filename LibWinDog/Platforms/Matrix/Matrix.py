@@ -23,7 +23,7 @@ import nio
 import queue
 
 MatrixClient = None
-MatrixQueue = []#queue.Queue()
+MatrixQueue = queue.Queue()
 
 def MatrixMain() -> bool:
 	if not (MatrixUrl and MatrixUsername and (MatrixPassword or MatrixToken)):
@@ -33,11 +33,10 @@ def MatrixMain() -> bool:
 		MatrixUsername = new
 	async def queue_handler():
 		asyncio.ensure_future(queue_handler())
-		if not len(MatrixQueue):
-			# avoid 100% CPU usage ☠️
-			time.sleep(0.01)
-		while len(MatrixQueue):
-			MatrixSender(*MatrixQueue.pop(0))
+		try:
+			MatrixSender(*MatrixQueue.get(block=False))
+		except queue.Empty:
+			time.sleep(0.01) # avoid 100% CPU usage ☠️
 	async def client_main() -> None:
 		global MatrixClient
 		MatrixClient = nio.AsyncClient(MatrixUrl, MatrixUsername)
@@ -69,6 +68,9 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 			#name = , # TODO name must be get via a separate API request (and so maybe we should cache it)
 		),
 	)
+	if (mxc_url := ObjGet(data, "media.url")) and mxc_url.startswith("mxc://"):
+		_, _, server_name, media_id = mxc_url.split('/')
+		data.media["url"] = ("https://" + server_name + nio.Api.download(server_name, media_id)[1])
 	data.command = ParseCommand(data.text_plain)
 	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
 	return data
@@ -85,7 +87,7 @@ def MatrixSender(context:EventContext, data:OutputMessageData):
 	try:
 		asyncio.get_event_loop()
 	except RuntimeError:
-		MatrixQueue.append((context, data))
+		MatrixQueue.put((context, data))
 		return None
 	asyncio.create_task(context.manager.room_send(
 		room_id=(data.room_id or ObjGet(context, "event.room.room_id")),

@@ -72,6 +72,7 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 
 def TelegramSender(context:EventContext, data:OutputMessageData):
 	result = None
+	# TODO clean this
 	if data.room_id:
 		result = context.manager.bot.send_message(data.room_id, text=data.text_plain)
 	else:

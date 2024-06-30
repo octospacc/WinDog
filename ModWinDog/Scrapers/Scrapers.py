@@ -107,8 +107,8 @@ def cCraiyonSelenium(context:EventContext, data:InputMessageData) -> None:
 			for img_elem in img_list:
 				img_array.append({"url": img_elem.get_attribute("src")}) #, "bytes": HttpReq(img_url).read()})
 			SendMessage(context, {
-				"TextPlain": f'"{prompt}"',
-				"TextMarkdown": (f'"_{CharEscape(prompt, "MARKDOWN")}_"'),
+				"text_plain": f'"{prompt}"',
+				"text_html": f'"<i>{html_escape(prompt)}</i>"',
 				"media": img_array,
 			})
 			return closeSelenium(driver_index, driver)

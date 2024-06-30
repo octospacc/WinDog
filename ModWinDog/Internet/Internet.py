@@ -19,7 +19,7 @@ def cEmbedded(context:EventContext, data:InputMessageData) -> None:
 	if len(data.command.tokens) >= 2:
 		# Find links in command body
 		text = (data.text_markdown + ' ' + data.text_plain)
-	elif (quoted := data.quoted) and (quoted.text_auto or quoted.text_markdown or quoted.text_html):
+	elif (quoted := data.quoted) and (quoted.text_plain or quoted.text_markdown or quoted.text_html):
 		# Find links in quoted message
 		text = ((quoted.text_markdown or '') + ' ' + (quoted.text_plain or '') + ' ' + (quoted.text_html or ''))
 	else:

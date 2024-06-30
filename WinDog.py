@@ -14,7 +14,7 @@ from os.path import isfile, isdir
 from random import choice, choice as randchoice, randint
 from threading import Thread
 from traceback import format_exc, format_exc as traceback_format_exc
-from urllib import parse as urlparse, urllib_parse
+from urllib import parse as urlparse, parse as urllib_parse
 from yaml import load as yaml_load, BaseLoader as yaml_BaseLoader
 from bs4 import BeautifulSoup
 from markdown import markdown
@@ -29,11 +29,14 @@ def ObjectUnion(*objects:object, clazz:object=None):
 	dikt = {}
 	auto_clazz = None
 	for obj in objects:
+		obj_clazz = obj.__class__
+		if not obj:
+			continue
 		if type(obj) == dict:
 			obj = (clazz or SafeNamespace)(**obj)
 		for key, value in tuple(obj.__dict__.items()):
 			dikt[key] = value
-		auto_clazz = obj.__class__
+		auto_clazz = obj_clazz
 	return (clazz or auto_clazz)(**dikt)
 
 def Log(text:str, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
@@ -185,7 +188,7 @@ def ParseCommand(text:str) -> SafeNamespace|None:
 	command.body = text[len(command.tokens[0]):].strip()
 	if command.name not in Endpoints:
 		return command
-	if (endpoint_arguments := Endpoints[command.name].arguments):#["arguments"]):
+	if (endpoint_arguments := Endpoints[command.name].arguments):
 		command.arguments = {}
 		index = 1
 		for key in endpoint_arguments:
@@ -201,17 +204,35 @@ def ParseCommand(text:str) -> SafeNamespace|None:
 	return command
 
 def OnMessageParsed(data:InputMessageData) -> None:
-	DumpMessage(data)
-	UpdateUserDb(data.user)
-	for bridge in BridgesConfig:
-		if data.room.id in bridge:
-			rooms = list(bridge)
-			rooms.remove(data.room.id)
-			for room in rooms:
-				tokens = room.split(':')
-				SendMessage(SafeNamespace(platform=tokens[0]), ObjectUnion(data, {"room_id": ':'.join(tokens)}))
+	dump_message(data, prefix='>')
+	#handle_bridging(SendMessage, data, from_sent=False)
+	update_user_db(data.user)
 
-def UpdateUserDb(user:SafeNamespace) -> None:
+def OnMessageSent(data:OutputMessageData) -> None:
+	dump_message(data, prefix='<')
+	#handle_bridging(SendMessage, data, from_sent=True) # TODO fix duplicate messages lol
+
+# TODO: fix to send messages to different rooms, this overrides destination data but that gives problems with rebroadcasting the bot's own messages
+def handle_bridging(method:callable, data:MessageData, from_sent:bool):
+	if data.user:
+		if (text_plain := ObjGet(data, "text_plain")):
+			text_plain = f"<{data.user.name}>: {text_plain}"
+		if (text_html := ObjGet(data, "text_html")):
+			text_html = (urlparse.quote(f"<{data.user.name}>: ") + text_html)
+	for bridge in BridgesConfig:
+		if data.room.id not in bridge:
+			continue
+		rooms = list(bridge)
+		rooms.remove(data.room.id)
+		for room_id in rooms:
+			method(
+				SafeNamespace(platform=room_id.split(':')[0]),
+				ObjectUnion(data, {"room_id": room_id}, ({"text_plain": text_plain, "text_markdown": None, "text_html": text_html} if data.user else None)),
+				from_sent)
+
+def update_user_db(user:SafeNamespace) -> None:
+	if not (user and user.id):
+		return
 	try:
 		User.get(User.id == user.id)
 	except User.DoesNotExist:
@@ -222,17 +243,17 @@ def UpdateUserDb(user:SafeNamespace) -> None:
 		except User.DoesNotExist:
 			User.create(id=user.id, id_hash=user_hash)
 
-def DumpMessage(data:InputMessageData) -> None:
+def dump_message(data:InputMessageData, prefix:str='') -> None:
 	if not (Debug and (DumpToFile or DumpToConsole)):
 		return
 	text = (data.text_plain.replace('\n', '\\n') if data.text_plain else '')
-	text = f"[{int(time.time())}] [{time.ctime()}] [{data.room and data.room.id}] [{data.message_id}] [{data.user.id}] {text}"
+	text = f"{prefix} [{int(time.time())}] [{time.ctime()}] [{data.room and data.room.id}] [{data.message_id}] [{data.user and data.user.id}] {text}"
 	if DumpToConsole:
 		print(text, data)
 	if DumpToFile:
 		open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Dump.txt"), 'a').write(text + '\n')
 
-def SendMessage(context:EventContext, data:OutputMessageData) -> None:
+def SendMessage(context:EventContext, data:OutputMessageData, from_sent:bool=False) -> None:
 	data = (OutputMessageData(**data) if type(data) == dict else data)
 
 	# TODO remove this after all modules are changed
@@ -240,14 +261,16 @@ def SendMessage(context:EventContext, data:OutputMessageData) -> None:
 		data.text = data.Text
 	if data.TextPlain and not data.text_plain:
 		data.text_plain = data.TextPlain
-	if data.TextMarkdown and not data.text_markdown:
-		data.text_markdown = data.TextMarkdown
+	if data.text and not data.text_plain:
+		data.text_plain = data.text
 
 	if data.text_plain or data.text_markdown or data.text_html:
 		if data.text_html and not data.text_plain:
 			data.text_plain = BeautifulSoup(data.text_html, "html.parser").get_text()
 		elif data.text_markdown and not data.text_plain:
 			data.text_plain = data.text_markdown
+		elif data.text_plain and not data.text_html:
+			data.text_html = html_escape(data.text_plain)
 	elif data.text:
 		# our old system attempts to always receive Markdown and retransform when needed
 		data.text_plain = MdToTxt(data.text)
@@ -266,7 +289,10 @@ def SendMessage(context:EventContext, data:OutputMessageData) -> None:
 	platform = Platforms[context.platform]
 	if (not context.manager) and (manager := platform.manager_class):
 		context.manager = (manager() if callable(manager) else manager)
-	return platform.sender(context, data)
+	result = platform.sender(context, data)
+	if not from_sent:
+		OnMessageSent(data)
+	return result
 
 def SendNotice(context:EventContext, data) -> None:
 	pass
@@ -275,7 +301,7 @@ def DeleteMessage(context:EventContext, data) -> None:
 	pass
 
 def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None) -> None:
-	Platforms[name.lower()] = SafeNamespace(main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class)
+	Platforms[name.lower()] = SafeNamespace(name=name, main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class)
 	Log(f"{name}, ", inline=True)
 
 def RegisterModule(name:str, endpoints:dict, *, group:str|None=None) -> None:
@@ -317,9 +343,9 @@ def Main() -> None:
 	#SetupDb()
 	SetupLocales()
 	Log(f"📨️ Initializing Platforms... ", newline=False)
-	for platform in Platforms:
-		if Platforms[platform].main():
-			Log(f"{platform}, ", inline=True)
+	for platform in Platforms.values():
+		if platform.main():
+			Log(f"{platform.name}, ", inline=True)
 	Log("...Done. ✅️", inline=True, newline=True)
 	Log("🐶️ WinDog Ready!")
 	while True:

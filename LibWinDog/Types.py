@@ -12,12 +12,17 @@ class SafeNamespace(SimpleNamespace):
 		except AttributeError:
 			return None
 
+# we just use these for type hinting:
+
 class EventContext(SafeNamespace):
 	pass
 
-class InputMessageData(SafeNamespace):
+class MessageData(SafeNamespace):
 	pass
 
-class OutputMessageData(SafeNamespace):
+class InputMessageData(MessageData):
+	pass
+
+class OutputMessageData(MessageData):
 	pass
 
