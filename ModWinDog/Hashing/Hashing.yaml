@@ -5,6 +5,7 @@ endpoints:
 	hash:
 		summary:
 			en: Responds with the hash-sum of the included or quoted text.
+			it: Risponde con la somma hash del testo incluso o citato.
 		algorithms:
 			en: Available algorithms
 			it: Algoritmi disponibili

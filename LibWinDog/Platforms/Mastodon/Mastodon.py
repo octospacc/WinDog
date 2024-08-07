@@ -35,7 +35,7 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 	command_tokens = data.text_plain.strip().replace("\t", " ").split(" ")
 	while command_tokens[0].strip().startswith('@') or not command_tokens[0]:
 		command_tokens.pop(0)
-	data.command = ParseCommand(" ".join(command_tokens))
+	data.command = ParseCommand(" ".join(command_tokens), "mastodon")
 	data.user = UserData(
 		id = ("mastodon:" + strip_url_scheme(status["account"]["uri"])),
 		name = status["account"]["display_name"],
@@ -46,7 +46,7 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 def MastodonHandler(event, Mastodon):
 	if event["type"] == "mention":
 		data = MastodonMakeInputMessageData(event["status"])
-		OnMessageParsed(data)
+		OnInputMessageParsed(data)
 		if (command := ObjGet(data, "command.name")):
 			CallEndpoint(command, EventContext(platform="mastodon", event=event, manager=Mastodon), data)
 

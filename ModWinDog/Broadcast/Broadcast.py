@@ -10,8 +10,8 @@ def cBroadcast(context:EventContext, data:InputMessageData) -> None:
 	text = data.command.body
 	if not (destination and text):
 		return SendMessage(context, OutputMessageData(text_plain="Bad usage."))
-	SendMessage(context, OutputMessageData(text_plain=text, room_id=destination))
-	SendMessage(context, OutputMessageData(text_plain="Executed."))
+	SendMessage(context, {"text_plain": text, "room": SafeNamespace(id=destination)})
+	SendMessage(context, {"text_plain": "Executed."})
 
 RegisterModule(name="Broadcast", endpoints=[
 	SafeNamespace(names=["broadcast"], handler=cBroadcast, body=True, arguments={

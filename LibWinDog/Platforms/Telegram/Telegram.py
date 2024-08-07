@@ -54,7 +54,7 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 			name = (message.chat.title or message.chat.first_name),
 		),
 	)
-	data.command = ParseCommand(data.text_plain)
+	data.command = ParseCommand(data.text_plain, "telegram")
 	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
 	linked = TelegramLinker(data)
 	data.message_url = linked.message
@@ -68,7 +68,7 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 		data = TelegramMakeInputMessageData(update.message)
 		if (quoted := update.message.reply_to_message):
 			data.quoted = TelegramMakeInputMessageData(quoted)
-		OnMessageParsed(data)
+		OnInputMessageParsed(data)
 		if (command := ObjGet(data, "command.name")):
 			CallEndpoint(command, EventContext(platform="telegram", event=update, manager=context), data)
 	Thread(target=handler).start()
@@ -76,8 +76,8 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 def TelegramSender(context:EventContext, data:OutputMessageData):
 	result = None
 	# TODO clean this
-	if data.room_id:
-		result = context.manager.bot.send_message(data.room_id, text=data.text_plain)
+	if data.room and (room_id := data.room.id):
+		result = context.manager.bot.send_message(room_id, text=data.text_plain)
 	else:
 		replyToId = (data.ReplyTo or context.event.message.message_id)
 		if data.media:
@@ -98,9 +98,9 @@ def TelegramSender(context:EventContext, data:OutputMessageData):
 # TODO support usernames
 def TelegramLinker(data:InputMessageData) -> SafeNamespace:
 	linked = SafeNamespace()
-	if data.room.id:
+	if (room_id := data.room.id):
 		# prefix must be dropped for groups and channels, while direct chats apparently can never be linked
-		if (room_id := "100".join(data.room.id.split("telegram:")[1].split("100")[1:])):
+		if (room_id := "100".join(room_id.split("telegram:")[1].split("100")[1:])):
 			# apparently Telegram doesn't really support links to rooms by id without a message id, so we just use a null one
 			linked.room = f"https://t.me/c/{room_id}/0"
 			if data.message_id:

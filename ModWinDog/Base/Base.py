@@ -4,7 +4,7 @@
 # ================================== #
 
 def cSource(context:EventContext, data:InputMessageData) -> None:
-	SendMessage(context, {"TextPlain": ("""\
+	SendMessage(context, {"text_plain": ("""\
 * Original Code: {https://gitlab.com/octospacc/WinDog}
   * Mirror: {https://github.com/octospacc/WinDog}
 """ + (f"* Modified Code: {{{ModifiedSourceUrl}}}" if ModifiedSourceUrl else ""))})

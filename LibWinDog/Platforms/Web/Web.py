@@ -59,14 +59,14 @@ class WebServerClass(BaseHTTPRequestHandler):
 		self.send_header("Location", f"/form/{uuid}")
 		self.end_headers()
 		data = WebMakeInputMessageData(text, uuid)
-		OnMessageParsed(data)
+		OnInputMessageParsed(data)
 		if (command := ObjGet(data, "command.name")):
 			CallEndpoint(command, EventContext(platform="web", event=SafeNamespace(room_id=uuid)), data)
 
 def WebMakeInputMessageData(text:str, uuid:str) -> InputMessageData:
 	return InputMessageData(
 		text_plain = text,
-		command = ParseCommand(text),
+		command = ParseCommand(text, "web"),
 		room = SafeNamespace(
 			id = f"web:{uuid}",
 		),

@@ -15,7 +15,7 @@ from re import compile as re_compile
 
 def cExec(context:EventContext, data:InputMessageData) -> None:
 	if not (len(data.command.tokens) >= 2 and data.command.tokens[1].lower() in ExecAllowed):
-		return SendMessage(context, {"Text": "This feature is not implemented [Security Issue]."})
+		return SendMessage(context, {"text_plain": "This feature is not implemented [Security Issue]."})
 	command = data.command.tokens[1].lower()
 	output = subprocess.run(
 		("sh", "-c", f"export PATH=$PATH:/usr/games; {command}"),

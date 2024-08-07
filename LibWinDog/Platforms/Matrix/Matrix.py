@@ -72,7 +72,7 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 	if (mxc_url := ObjGet(data, "media.url")) and mxc_url.startswith("mxc://"):
 		_, _, server_name, media_id = mxc_url.split('/')
 		data.media["url"] = ("https://" + server_name + nio.Api.download(server_name, media_id)[1])
-	data.command = ParseCommand(data.text_plain)
+	data.command = ParseCommand(data.text_plain, "matrix")
 	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
 	return data
 
@@ -83,7 +83,7 @@ async def MatrixMessageHandler(room:nio.MatrixRoom, event:nio.RoomMessage) -> No
 	if MatrixUsername == event.sender:
 		return # ignore messages that come from the bot itself
 	data = MatrixMakeInputMessageData(room, event)
-	OnMessageParsed(data)
+	OnInputMessageParsed(data)
 	if (command := ObjGet(data, "command.name")):
 		CallEndpoint(command, EventContext(platform="matrix", event=SafeNamespace(room=room, event=event), manager=MatrixClient), data)
 
@@ -94,7 +94,7 @@ def MatrixSender(context:EventContext, data:OutputMessageData):
 		MatrixQueue.put((context, data))
 		return None
 	asyncio.create_task(context.manager.room_send(
-		room_id=(data.room_id or ObjGet(context, "event.room.room_id")),
+		room_id=((data.room and data.room.id) or ObjGet(context, "event.room.room_id")),
 		message_type="m.room.message",
 		content={"msgtype": "m.text", "body": data.text_plain}))
 

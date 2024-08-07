@@ -1,0 +1,20 @@
+summary:
+	en: Functions for encoding content.
+	it: Funzioni per codificare contenuti.
+endpoints:
+	encode:
+		body:
+			en: Text to encode
+			it: Testo da codificare
+	decode:
+		body:
+			en: Text to decode
+			it: Testo da decodificare
+algorithms:
+	en: Available algorithms
+	it: Algoritmi disponibili
+arguments:
+	algorithm:
+		en: Algorithm
+		it: Algoritmo
+
