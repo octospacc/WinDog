@@ -119,7 +119,7 @@ def cCraiyonSelenium(context:EventContext, data:InputMessageData) -> None:
 		closeSelenium(driver_index, driver)
 
 RegisterModule(name="Scrapers", endpoints=[
-	SafeNamespace(names=["dalle"], handler=cDalleSelenium),
-	SafeNamespace(names=["craiyon", "crayion"], handler=cCraiyonSelenium),
+	SafeNamespace(names=["dalle"], handler=cDalleSelenium, body=True),
+	SafeNamespace(names=["craiyon", "crayion"], handler=cCraiyonSelenium, body=True),
 ])
 

@@ -1,6 +1,9 @@
 summary:
 	en: Functions for dumping of various data.
-dump:
-	summary:
-		en: Dumps the data for a quoted message and returns the JSON representation.
+endpoints:
+	dump:
+		summary:
+			en: Dumps the data for a quoted message and returns the JSON representation.
+		body:
+			en: Target message
 

@@ -6,11 +6,12 @@
 from json import dumps as json_dumps
 
 def cDump(context:EventContext, data:InputMessageData):
-	if not (message := ObjGet(data, "quoted")):
-		pass # TODO send error message
-	SendMessage(context, {"TextPlain": json_dumps(message, default=(lambda obj: obj.__dict__), indent="  ")})
+	SendMessage(context, {
+		"text_html": (f'<pre>{json_dumps(message, default=(lambda obj: obj.__dict__), indent="  ")}</pre>'
+			if (message := ObjGet(data, "quoted"))
+			else context.endpoint.help_text(data.user.settings.language))})
 
 RegisterModule(name="Dumper", group="Geek", endpoints=[
-	SafeNamespace(names=["dump"], handler=cDump),
+	SafeNamespace(names=["dump"], handler=cDump, quoted=True),
 ])
 

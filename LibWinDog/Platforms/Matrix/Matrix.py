@@ -48,6 +48,7 @@ def MatrixMain() -> bool:
 		await MatrixClient.sync(30000) # resync old messages first to "skip read ones"
 		asyncio.ensure_future(queue_handler())
 		MatrixClient.add_event_callback(MatrixMessageHandler, nio.RoomMessage)
+		MatrixClient.add_event_callback(MatrixInviteHandler, nio.InviteEvent)
 		await MatrixClient.sync_forever(timeout=30000)
 	Thread(target=lambda:asyncio.run(client_main())).start()
 	return True
@@ -63,7 +64,7 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 			id = f"matrix:{room.room_id}",
 			name = room.display_name,
 		),
-		user = SafeNamespace(
+		user = UserData(
 			id = f"matrix:{event.sender}",
 			#name = , # TODO name must be get via a separate API request (and so maybe we should cache it)
 		),
@@ -74,6 +75,9 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 	data.command = ParseCommand(data.text_plain)
 	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
 	return data
+
+async def MatrixInviteHandler(room:nio.MatrixRoom, event:nio.InviteEvent) -> None:
+	await MatrixClient.join(room.room_id)
 
 async def MatrixMessageHandler(room:nio.MatrixRoom, event:nio.RoomMessage) -> None:
 	if MatrixUsername == event.sender:

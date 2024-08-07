@@ -137,13 +137,13 @@ def cSafebooru(context:EventContext, data:InputMessageData) -> None:
 		raise
 
 RegisterModule(name="Internet", endpoints=[
-	SafeNamespace(names=["embedded"], handler=cEmbedded),
-	SafeNamespace(names=["web"], handler=cWeb),
-	SafeNamespace(names=["translate"], handler=cTranslate, arguments={
+	SafeNamespace(names=["embedded"], handler=cEmbedded, body=False, quoted=False),
+	SafeNamespace(names=["web"], handler=cWeb, body=True),
+	SafeNamespace(names=["translate"], handler=cTranslate, body=False, quoted=False, arguments={
 		"language_to": True,
 		"language_from": False,
 	}),
 	#SafeNamespace(names=["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
-	SafeNamespace(names=["safebooru"], handler=cSafebooru),
+	SafeNamespace(names=["safebooru"], handler=cSafebooru, body=False),
 ])
 

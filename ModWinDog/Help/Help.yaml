@@ -2,4 +2,9 @@ endpoints:
 	help:
 		summary:
 			en: Provides help for the bot. For now, it just lists the commands.
+		help:
+			en: >
+				<b>There's no one around to help.</b> However, you can have the commands list:
+			it: >
+				<b>Non c'è nessuno qui ad aiutarti.</b> Tuttavia, puoi avere la lista dei comandi:
 

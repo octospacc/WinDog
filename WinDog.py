@@ -49,39 +49,6 @@ def Log(text:str, level:str="?", *, newline:bool|None=None, inline:bool=False) -
 	if LogToFile:
 		open("./Log.txt", 'a').write(text + endline)
 
-def SetupLocales() -> None:
-	global Locale
-	for file in listdir('./Locale'):
-		lang = file.split('.')[0]
-		try:
-			with open(f'./Locale/{file}') as file:
-				Locale[lang] = json.load(file)
-		except Exception:
-			Log(f'Cannot load {lang} locale, exiting.')
-			raise
-			exit(1)
-	for key in Locale[DefaultLanguage]:
-		Locale['Fallback'][key] = Locale[DefaultLanguage][key]
-	for lang in Locale:
-		for key in Locale[lang]:
-			if not key in Locale['Fallback']:
-				Locale['Fallback'][key] = Locale[lang][key]
-	def querier(query:str, lang:str=DefaultLanguage):
-		value = None
-		query = query.split('.')
-		try:
-			value = Locale.Locale[lang]
-			for key in query:
-				value = value[key]
-		except Exception:
-			value = Locale.Locale['Fallback']
-			for key in query:
-				value = value[key]
-		return value
-	Locale['__'] = querier
-	Locale['Locale'] = Locale
-	Locale = SimpleNamespace(**Locale)
-
 def SureArray(array:any) -> list|tuple:
 	return (array if type(array) in [list, tuple] else [array])
 
@@ -112,11 +79,38 @@ def isinstanceSafe(clazz:any, instance:any, /) -> bool:
 		return isinstance(clazz, instance)
 	return False
 
-def get_string(bank:dict, query:str|dict, lang:str=None, /):
+def good_yaml_load(text:str):
+	return yaml_load(text.replace("\t", "    "), Loader=yaml_BaseLoader)
+
+def get_string(bank:dict, query:str|dict, lang:str=None) -> str|list[str]|None:
 	if not (result := ObjGet(bank, f"{query}.{lang or DefaultLanguage}")):
 		if not (result := ObjGet(bank, f"{query}.en")):
 			result = ObjGet(bank, query)
 	return result
+
+def help_text(endpoint, lang:str=None) -> str:
+	global_string = (lambda query: get_string(GlobalStrings, query, lang))
+	text = f'{endpoint.get_string("summary", lang) or ""}\n\n{global_string("usage")}:'
+	if endpoint.arguments:
+		for argument in endpoint.arguments:
+			if endpoint.arguments[argument]:
+				text += f' &lt;{endpoint.get_string(f"arguments.{argument}", lang) or argument}&gt;'
+	body_help = endpoint.get_string("body", lang)
+	quoted_help = (global_string("quoted_message") + (f': {body_help}' if body_help else ''))
+	if not body_help:
+		body_help = global_string("text")
+	if endpoint.body == False and endpoint.quoted == False:
+		text += f' &lt;{global_string("text")} {global_string("or")} {global_string("quoted_message")}: {body_help}&gt;'
+	else:
+		if endpoint.body == True:
+			text += f' &lt;{body_help}&gt;'
+		elif endpoint.body == False:
+			text += f' [{body_help}]'
+		if endpoint.quoted == True:
+			text += f' &lt;{quoted_help}&gt;'
+		elif endpoint.quoted == False:
+			text += f' [{quoted_help}]'
+	return text
 
 def strip_url_scheme(url:str) -> str:
 	tokens = urlparse.urlparse(url)
@@ -172,7 +166,6 @@ def GetUserSettings(user_id:str) -> SafeNamespace|None:
 	except EntitySettings.DoesNotExist:
 		return None
 
-# TODO ignore tagged commands when they are not directed to the bot's username
 def ParseCommand(text:str) -> SafeNamespace|None:
 	if not text:
 		return None
@@ -184,12 +177,15 @@ def ParseCommand(text:str) -> SafeNamespace|None:
 		return None
 	command = SafeNamespace()
 	command.tokens = text.split()
-	command.name = command.tokens[0][1:].lower().split('@')[0]
+	command.name, command_target = (command.tokens[0][1:].lower().split('@') + [''])
+	# TODO ignore tagged commands when they are not directed to the bot's username
+	if command_target and not command_target:
+		return None
 	command.body = text[len(command.tokens[0]):].strip()
 	if command.name not in Endpoints:
 		return command
 	if (endpoint_arguments := Endpoints[command.name].arguments):
-		command.arguments = {}
+		command.arguments = SafeNamespace()
 		index = 1
 		for key in endpoint_arguments:
 			if not endpoint_arguments[key]:
@@ -300,14 +296,14 @@ def SendNotice(context:EventContext, data) -> None:
 def DeleteMessage(context:EventContext, data) -> None:
 	pass
 
-def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None) -> None:
-	Platforms[name.lower()] = SafeNamespace(name=name, main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class)
+def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
+	Platforms[name.lower()] = SafeNamespace(name=name, main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class, agent_info=agent_info)
 	Log(f"{name}, ", inline=True)
 
 def RegisterModule(name:str, endpoints:dict, *, group:str|None=None) -> None:
-	module = SafeNamespace(group=group, endpoints=endpoints, get_string=(lambda query, lang=None, /: None))
+	module = SafeNamespace(group=group, endpoints=endpoints, get_string=(lambda query, lang=None: None))
 	if isfile(file := f"./ModWinDog/{name}/{name}.yaml"):
-		module.strings = yaml_load(open(file, 'r').read().replace("\t", "    "), Loader=yaml_BaseLoader)
+		module.strings = good_yaml_load(open(file, 'r').read())
 		module.get_string = (lambda query, lang=None: get_string(module.strings, query, lang))
 	Modules[name] = module
 	Log(f"{name}, ", inline=True)
@@ -318,9 +314,13 @@ def RegisterModule(name:str, endpoints:dict, *, group:str|None=None) -> None:
 
 def CallEndpoint(name:str, context:EventContext, data:InputMessageData):
 	endpoint = Endpoints[name]
-	context.endpoint = endpoint
 	context.module = endpoint.module
-	context.endpoint.get_string = (lambda query, lang=None, /: endpoint.module.get_string(f"endpoints.{data.command.name}.{query}", lang))
+	context.endpoint = endpoint
+	context.endpoint.get_string = (lambda query=data.command.name, lang=None:
+		endpoint.module.get_string(f"endpoints.{data.command.name}.{query}", lang))
+	context.endpoint.help_text = (lambda lang=None: help_text(endpoint, lang))
+	if callable(agent_info := Platforms[context.platform].agent_info):
+		Platforms[context.platform].agent_info = agent_info()
 	return endpoint.handler(context, data)
 
 def WriteNewConfig() -> None:
@@ -341,7 +341,6 @@ def WriteNewConfig() -> None:
 
 def Main() -> None:
 	#SetupDb()
-	SetupLocales()
 	Log(f"📨️ Initializing Platforms... ", newline=False)
 	for platform in Platforms.values():
 		if platform.main():
@@ -353,7 +352,7 @@ def Main() -> None:
 
 if __name__ == '__main__':
 	Log("🌞️ WinDog Starting...")
-	Locale = {"Fallback": {}}
+	GlobalStrings = good_yaml_load(open("./WinDog.yaml", 'r').read())
 	Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
 
 	for folder in ("LibWinDog/Platforms", "ModWinDog"):

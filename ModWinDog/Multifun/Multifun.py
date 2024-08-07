@@ -4,23 +4,22 @@
 # ================================== #
 
 def mMultifun(context:EventContext, data:InputMessageData) -> None:
-	cmdkey = data.command.name
-	replyToId = None
+	reply_to = None
+	fun_strings = {}
+	for key in ("empty", "bot", "self", "others"):
+		fun_strings[key] = context.endpoint.get_string(key, data.user.settings.language)
 	if data.quoted:
-		replyFromUid = data.quoted.user.id
-		# TODO work on all platforms for the bot id
-		if replyFromUid.split(':')[1] == TelegramToken.split(':')[0] and 'bot' in Locale.__(cmdkey):
-			Text = choice(Locale.__(f'{cmdkey}.bot'))
-		elif replyFromUid == data.user.id and 'self' in Locale.__(cmdkey):
-			Text = choice(Locale.__(f'{cmdkey}.self')).format(data.user.name)
-		else:
-			if 'others' in Locale.__(cmdkey):
-				Text = choice(Locale.__(f'{cmdkey}.others')).format(data.user.name, data.quoted.user.name)
-				replyToId = data.quoted.message_id
+		if fun_strings["bot"] and (data.quoted.user.id == Platforms[context.platform].agent_info.id):
+			text = choice(fun_strings["bot"])
+		elif fun_strings["self"] and (data.quoted.user.id == data.user.id):
+			text = choice(fun_strings["self"]).format(data.user.name)
+		elif fun_strings["others"]:
+			text = choice(fun_strings["others"]).format(data.user.name, data.quoted.user.name)
+			reply_to = data.quoted.message_id
 	else:
-		if 'empty' in Locale.__(cmdkey):
-			Text = choice(Locale.__(f'{cmdkey}.empty'))
-	SendMessage(context, {"Text": Text, "ReplyTo": replyToId})
+		if fun_strings["empty"]:
+			text = choice(fun_strings["empty"])
+	SendMessage(context, {"text_html": text, "ReplyTo": reply_to})
 
 RegisterModule(name="Multifun", endpoints=[
 	SafeNamespace(names=["hug", "pat", "poke", "cuddle", "hands", "floor", "sessocto"], handler=mMultifun),

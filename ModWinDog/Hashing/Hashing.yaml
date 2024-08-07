@@ -4,12 +4,15 @@ summary:
 endpoints:
 	hash:
 		summary:
-			en: Responds with the hash-sum of the received message.
+			en: Responds with the hash-sum of the included or quoted text.
+		algorithms:
+			en: Available algorithms
+			it: Algoritmi disponibili
 		arguments:
 			algorithm:
 				en: Algorithm
 				it: Algoritmo
-			body:
-				en: Text to hash
-				it: Testo da hashare
+		body:
+			en: Text to hash
+			it: Testo da hashare
 

@@ -36,7 +36,7 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 	while command_tokens[0].strip().startswith('@') or not command_tokens[0]:
 		command_tokens.pop(0)
 	data.command = ParseCommand(" ".join(command_tokens))
-	data.user = SafeNamespace(
+	data.user = UserData(
 		id = ("mastodon:" + strip_url_scheme(status["account"]["uri"])),
 		name = status["account"]["display_name"],
 	)

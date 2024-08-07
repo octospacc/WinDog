@@ -70,7 +70,7 @@ def WebMakeInputMessageData(text:str, uuid:str) -> InputMessageData:
 		room = SafeNamespace(
 			id = f"web:{uuid}",
 		),
-		user = SafeNamespace(
+		user = UserData(
 			settings = SafeNamespace(),
 		),
 	)

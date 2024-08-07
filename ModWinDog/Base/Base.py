@@ -38,12 +38,12 @@ def cPing(context:EventContext, data:InputMessageData) -> None:
 #		CharEscape(choice(Locale.__('time')).format(time.ctime().replace('  ', ' ')), 'MARKDOWN_SPEECH'),
 #		reply_to_message_id=update.message.message_id)
 
-def cEval(context:EventContext, data:InputMessageData) -> None:
-	SendMessage(context, {"Text": choice(Locale.__('eval'))})
+#def cEval(context:EventContext, data:InputMessageData) -> None:
+#	SendMessage(context, {"Text": choice(Locale.__('eval'))})
 
 RegisterModule(name="Base", endpoints=[
 	SafeNamespace(names=["source"], handler=cSource),
-	SafeNamespace(names=["config"], handler=cConfig, arguments={
+	SafeNamespace(names=["config"], handler=cConfig, body=False, arguments={
 		"get": True,
 	}),
 	#SafeNamespace(names=["gdpr"], summary="Operations for european citizens regarding your personal data.", handler=cGdpr),

@@ -32,6 +32,13 @@ def TelegramMain() -> bool:
 	#app.run_polling(allowed_updates=Update.ALL_TYPES)
 	return True
 
+def TelegramMakeUserData(user:telegram.User) -> UserData:
+	return UserData(
+		id = f"telegram:{user.id}",
+		tag = user.username,
+		name = user.first_name,
+	)
+
 def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 	#if not message:
 	#	return None
@@ -40,11 +47,7 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 		datetime = int(time.mktime(message.date.timetuple())),
 		text_plain = message.text,
 		text_markdown = message.text_markdown_v2,
-		user = SafeNamespace(
-			id = f"telegram:{message.from_user.id}",
-			tag = message.from_user.username,
-			name = message.from_user.first_name,
-		),
+		user = TelegramMakeUserData(message.from_user),
 		room = SafeNamespace(
 			id = f"telegram:{message.chat.id}",
 			tag = message.chat.username,
@@ -105,5 +108,13 @@ def TelegramLinker(data:InputMessageData) -> SafeNamespace:
 				linked.message = f"https://t.me/c/{room_id}/{message_id}"
 	return linked
 
-RegisterPlatform(name="Telegram", main=TelegramMain, sender=TelegramSender, linker=TelegramLinker, event_class=telegram.Update, manager_class=(lambda:TelegramClient))
+RegisterPlatform(
+	name="Telegram",
+	main=TelegramMain,
+	sender=TelegramSender,
+	linker=TelegramLinker,
+	event_class=telegram.Update,
+	manager_class=(lambda:TelegramClient),
+	agent_info=(lambda:TelegramMakeUserData(TelegramClient.bot.get_me())),
+)
 

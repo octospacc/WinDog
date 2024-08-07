@@ -1,3 +1,119 @@
 summary:
 	en: Provides fun trough preprogrammed text-based toys.
+endpoints:
+	hug:
+		empty:
+			en:
+				- <b>Hug? You haven't replied to anyone...</b>
+			it:
+				- <b>Chi vuoi abbracciare? Rispondi a qualcuno.</b>
+				- <b>Un abbraccio a chi? Non hai risposto a nessuno...</b>
+		bot:
+			it:
+				- <b>...Grazie uwu <3</b>
+				- <b>Non puoi abbracciarmi ☁️ :/</b>
+		self:
+			it:
+				- <b>{0} allunga le braccia attorno a sè, si stringe forte, e si sente ora meno triste.</b>
+		others:
+			en:
+				- <b>{0} hugs {1} tightly... :3</b>
+			it:
+				- <b>{0} abbraccia {1} forte forte... :3</b>
+				- <b>{0} ti ha dato un abbraccio!</b>
+	pat:
+		empty:
+			it:
+				- <b>Chi vuoi accarezzare? Rispondi a qualcuno.</b>
+				- <b>Una carezza a chi? Non hai risposto a nessuno...</b>
+		bot:
+			it:
+				- <b>Rawrrr xDDdd</b>
+				- <b>Come vuoi accarezzarmi? Vivo nel cloud... :(</b>
+		self:
+			it:
+				- <b>{0} allunga goffamente la mano dietro di sè per accarezzarsi in testa 🙃</b>
+		others:
+			it:
+				- <b>{0} fa patpat a {1} ^.^</b>
+				- <b>{0} ti accarezza con dolcezza.</b>
+	poke:
+		empty:
+			it:
+				- <b>Chi vuoi punzecchiare? Rispondi a qualcuno.</b>
+				- <b>Punzecchiare chi? Non hai risposto a nessuno...</b>
+		bot:
+			it:
+				- <b>&gt;_&lt; perché?</b>
+				- <b>heh ☁️😌</b>
+		self:
+			it:
+				- <b>{0} si punzecchia :o</b>
+		others:
+			it:
+				- <b>{0} punzecchia {1} 👀*</b>
+				- <b>{0} ti punzecchia con impertinenza 👉</b>
+	cuddle:
+		empty:
+			it:
+				- <b>A chi vuoi fare le coccole? Rispondi a qualcuno.</b>
+				- <b>Le coccole? A chi? Non hai risposto a nessuno...</b>
+		bot:
+			it:
+				- <b>Aww.. grazie :3</b>
+				- <b>Vorrei anche io le coccole ma... ☁️😔</b>
+		self:
+			it:
+				- <b>{0} si stende sul letto e prova a farsi le coccole, per sentirsi meglio.</b>
+		others:
+			it:
+				- <b>{0} fa le coccole a {1} 🥰</b>
+				- <b>{0} ti fa le coccole! 🤗️</b>
+	floor:
+		empty:
+			it:
+				- <b>Il pavimento?</b>
+				- <b>Il pavimentowo?</b>
+				- <b>Vuoi mettere qualcuno sul pavimento? Rispondi ad un suo messaggio.</b>
+		bot:
+			it:
+				- <b>Sono già sul pavimento.. sono sempre sul pavimento.</b>
+		self:
+			it:
+				- <b>{0} si mette sul pavimento.</b>
+		others:
+			it:
+				- <b>{0} solleva {1} dal pavimento.</b>
+				- <b>{0} ti prende in braccio e ti appoggia con delicatezza sul pavimento.</b>
+	hands:
+		empty:
+			it:
+				- <b>Le t.me/manineuwu? 😳️</b>
+				- <b>A chi vuoi dare le manine? Rispondi a qualcuno.</b>
+		bot:
+			it:
+				- <b>Io non le ho le manine,.,. 😭️</b>
+		self:
+			it:
+				- <b>{0} fa handholding in solitudine... 😶️</b>
+				- <b>{0} non ha nessuno a cui dare la mano 😐️</b>
+		others:
+			it:
+				- <b>{0} prende le mani di {1} 😳️❤️</b>
+				- <b>{0} vuole darti la sua manina 🥺👉️👈️</b>
+	sessocto:
+		empty:
+			it:
+				- <b>Sessocto?!?! 😳️</b>
+				- <b>Vuoi fare sessocto con qualcuno? Rispondi ad un suo messaggio.</b>
+		bot:
+			it:
+				- <b>Vorrei anche io sessocto ma non ho un corpo... 😥️</b>
+		self:
+			it:
+				- <b>{0} fa sessocto in singleplayer 😳️</b>
+		others:
+			it:
+				- <b>{0} vuole fare sessocto con te... 👀️</b>
+				- <b>{0} e {1} fanno sessocto insieme 💑️</b>
 

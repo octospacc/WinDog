@@ -18,6 +18,6 @@ def cGpt(context:EventContext, data:InputMessageData) -> None:
 	return SendMessage(context, {"TextPlain": f"[🤖️ GPT]\n\n{output}"})
 
 RegisterModule(name="GPT", endpoints=[
-	SafeNamespace(names=["gpt", "chatgpt"], handler=cGpt),
+	SafeNamespace(names=["gpt", "chatgpt"], handler=cGpt, body=True),
 ])
 

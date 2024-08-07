@@ -1,3 +1,30 @@
 summary:
 	en: Provides fun trough percentage-based toys.
+endpoints:
+	wish:
+		empty:
+			en: |
+				<b>You wished for nothing! ✨</b>
+				
+				<i>Nothing happens...</i>
+			it: |
+				<b>Non hai desiderato nulla! ✨</b>
+				
+				<i>Non succede niente...</i>
+		done:
+			en: |
+				<b>Your wish has been cast! ✨</b>
+				
+				<i>Chance of success: <b>{0}%</b>.</i>
+			it: |
+				<b>Il tuo desiderio è stato espresso! ✨</b>
+				
+				<i>Probabilità che si avveri: <b>{0}%</b>.</i>
+	level:
+		summary:
+			en: Check what's your level of something.
+			it: Controlla il tuo livello di qualcosa.
+		done:
+			en: <i>Your level of <b>{1}</b> is... <b>{0}%</b>.</i>
+			it: <i>Il tuo livello di <b>{1}</b> è... <b>{0}%</b>.</i>
 

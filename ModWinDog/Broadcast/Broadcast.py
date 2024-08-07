@@ -5,7 +5,7 @@
 
 def cBroadcast(context:EventContext, data:InputMessageData) -> None:
 	if (data.user.id not in AdminIds) and (data.user.tag not in AdminIds):
-		return SendMessage(context, {"Text": choice(Locale.__('eval'))})
+		return SendMessage(context, {"Text": "Permission denied."})
 	destination = data.command.arguments["destination"]
 	text = data.command.body
 	if not (destination and text):
@@ -14,7 +14,7 @@ def cBroadcast(context:EventContext, data:InputMessageData) -> None:
 	SendMessage(context, OutputMessageData(text_plain="Executed."))
 
 RegisterModule(name="Broadcast", endpoints=[
-	SafeNamespace(names=["broadcast"], handler=cBroadcast, arguments={
+	SafeNamespace(names=["broadcast"], handler=cBroadcast, body=True, arguments={
 		"destination": True,
 	}),
 ])

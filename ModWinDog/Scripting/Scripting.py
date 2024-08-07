@@ -53,6 +53,6 @@ end)()"""))
 	SendMessage(context, {"TextPlain": textOutput})
 
 RegisterModule(name="Scripting", group="Geek", endpoints=[
-	SafeNamespace(names=["lua"], handler=cLua),
+	SafeNamespace(names=["lua"], handler=cLua, body=False, quoted=False),
 ])
 
