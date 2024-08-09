@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 """ # windog config start # """
 
@@ -60,13 +60,12 @@ class WebServerClass(BaseHTTPRequestHandler):
 		self.end_headers()
 		data = WebMakeInputMessageData(text, uuid)
 		OnInputMessageParsed(data)
-		if (command := ObjGet(data, "command.name")):
-			CallEndpoint(command, EventContext(platform="web", event=SafeNamespace(room_id=uuid)), data)
+		call_endpoint(EventContext(platform="web", event=SafeNamespace(room_id=uuid)), data)
 
 def WebMakeInputMessageData(text:str, uuid:str) -> InputMessageData:
 	return InputMessageData(
 		text_plain = text,
-		command = ParseCommand(text, "web"),
+		command = TextCommandData(text, "web"),
 		room = SafeNamespace(
 			id = f"web:{uuid}",
 		),

@@ -1,8 +1,5 @@
-/Config.py
-/Database.sqlite
-/Dump.txt
-/Log.txt
-/Selenium-WinDog/
+/Data/
 /downloaded_files/
-/session.txt
 *.pyc
+*.lock
+/RunWinDog.py

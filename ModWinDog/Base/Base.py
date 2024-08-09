@@ -1,37 +1,46 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
-def cSource(context:EventContext, data:InputMessageData) -> None:
-	SendMessage(context, {"text_plain": ("""\
+def cSource(context:EventContext, data:InputMessageData):
+	send_message(context, {"text_plain": ("""\
 * Original Code: {https://gitlab.com/octospacc/WinDog}
   * Mirror: {https://github.com/octospacc/WinDog}
 """ + (f"* Modified Code: {{{ModifiedSourceUrl}}}" if ModifiedSourceUrl else ""))})
 
-def cGdpr(context:EventContext, data:InputMessageData) -> None:
+def cGdpr(context:EventContext, data:InputMessageData):
 	pass
 
-def cConfig(context:EventContext, data:InputMessageData) -> None:
-	if not (settings := GetUserSettings(data.user.id)):
+UserSettingsLimits = {
+	"language": 13,
+}
+
+def cConfig(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
+	if not (settings := UserSettingsData(data.user.id)):
 		User.update(settings=EntitySettings.create()).where(User.id == data.user.id).execute()
-	if (to_set := ObjGet(data, "command.arguments.set")):
-		pass # TODO set in db, but first we need to ensure data is handled safely
-	if (to_get := ObjGet(data, "command.arguments.get")):
-		# TODO show a hint on possible options?
-		return SendMessage(context, OutputMessageData(text_plain=str(ObjGet(data.user.settings, to_get))))
+		settings = UserSettingsData(data.user.id)
+	if not (key := data.command.arguments.get) or (key not in UserSettingsLimits):
+		return send_status_400(context, language)
+	if (value := data.command.body):
+		if len(value) > UserSettingsLimits[key]:
+			return send_status(context, 500, language)
+		EntitySettings.update(**{key: value}).where(EntitySettings.entity == data.user.id).execute()
+		settings = UserSettingsData(data.user.id)
+	if (key):
+		# TODO show a hint on possible options? and add proper text hints for results
+		return send_message(context, {"text_plain": str(obj_get(settings, key))})
 	# TODO show general help when no useful parameters are passed
-	#Cmd = TelegramHandleCmd(update)
-	#if not Cmd: return
 	# ... area: eu, us, ...
 	# ... language: en, it, ...
 	# ... userdata: import, export, delete
 
-def cPing(context:EventContext, data:InputMessageData) -> None:
+def cPing(context:EventContext, data:InputMessageData):
 	# nice experiment, but it won't work with Telegram since time is not to milliseconds (?)
 	#time_diff = (time_now := int(time.time())) - (time_sent := data.datetime)
-	#SendMessage(context, OutputMessageData(text_html=f"<b>Pong!</b>\n\n{time_sent} → {time_now} = {time_diff}"))
-	SendMessage(context, OutputMessageData(text_html="<b>Pong!</b>"))
+	#send_message(context, OutputMessageData(text_html=f"<b>Pong!</b>\n\n{time_sent} → {time_now} = {time_diff}"))
+	send_message(context, OutputMessageData(text_html="<b>Pong!</b>"))
 
 #def cTime(update:Update, context:CallbackContext) -> None:
 #	update.message.reply_markdown_v2(
@@ -39,7 +48,7 @@ def cPing(context:EventContext, data:InputMessageData) -> None:
 #		reply_to_message_id=update.message.message_id)
 
 #def cEval(context:EventContext, data:InputMessageData) -> None:
-#	SendMessage(context, {"Text": choice(Locale.__('eval'))})
+#	send_message(context, {"Text": choice(Locale.__('eval'))})
 
 RegisterModule(name="Base", endpoints=[
 	SafeNamespace(names=["source"], handler=cSource),

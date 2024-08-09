@@ -1,9 +1,9 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
-def mMultifun(context:EventContext, data:InputMessageData) -> None:
+def mMultifun(context:EventContext, data:InputMessageData):
 	reply_to = None
 	fun_strings = {}
 	for key in ("empty", "bot", "self", "others"):
@@ -19,7 +19,7 @@ def mMultifun(context:EventContext, data:InputMessageData) -> None:
 	else:
 		if fun_strings["empty"]:
 			text = choice(fun_strings["empty"])
-	SendMessage(context, {"text_html": text, "ReplyTo": reply_to})
+	return send_message(context, {"text_html": text, "ReplyTo": reply_to})
 
 RegisterModule(name="Multifun", endpoints=[
 	SafeNamespace(names=["hug", "pat", "poke", "cuddle", "hands", "floor", "sessocto"], handler=mMultifun),

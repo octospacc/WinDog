@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 """ # windog config start # """
 
@@ -23,11 +23,10 @@ def luaAttributeFilter(obj, attr_name, is_setting):
 	raise AttributeError("Access Denied.")
 
 # TODO make print behave the same as normal Lua, and expose a function for printing without newlines
-def cLua(context:EventContext, data:InputMessageData) -> None:
+def cLua(context:EventContext, data:InputMessageData):
 	# TODO update quoted api getting
-	scriptText = (data.command.body or (data.quoted and data.quoted.text_plain))
-	if not scriptText:
-		return SendMessage(context, {"text_plain": "You must provide some Lua code to execute."})
+	if not (script_text := (data.command.body or (data.quoted and data.quoted.text_plain))):
+		return send_message(context, {"text_plain": "You must provide some Lua code to execute."})
 	luaRuntime = NewLuaRuntime(max_memory=LuaMemoryLimit, register_eval=False, register_builtins=False, attribute_filter=luaAttributeFilter)
 	luaRuntime.eval(f"""(function()
 _windog = {{ stdout = "" }}
@@ -44,13 +43,12 @@ end)()""")
 		elif key not in LuaGlobalsWhitelist:
 			del luaRuntime.globals()[key]
 	try:
-		textOutput = ("[ʟᴜᴀ ꜱᴛᴅᴏᴜᴛ]\n\n" + luaRuntime.eval(f"""(function()
-_windog.scriptout = (function()\n{scriptText}\nend)()
+		return send_message(context, {"text_plain": ("[ʟᴜᴀ ꜱᴛᴅᴏᴜᴛ]\n\n" + luaRuntime.eval(f"""(function()
+_windog.scriptout = (function()\n{script_text}\nend)()
 return _windog.stdout .. (_windog.scriptout or '')
-end)()"""))
-	except (LuaError, LuaSyntaxError) as error:
-		Log(textOutput := ("Lua Error: " + str(error)))
-	SendMessage(context, {"TextPlain": textOutput})
+end)()"""))})
+	except (LuaError, LuaSyntaxError):
+		return send_status_error(context, data.user.settings.language)
 
 RegisterModule(name="Scripting", group="Geek", endpoints=[
 	SafeNamespace(names=["lua"], handler=cLua, body=False, quoted=False),

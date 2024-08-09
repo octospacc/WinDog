@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 """ # windog config start #
 
@@ -54,8 +54,8 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 			name = (message.chat.title or message.chat.first_name),
 		),
 	)
-	data.command = ParseCommand(data.text_plain, "telegram")
-	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
+	data.command = TextCommandData(data.text_plain, "telegram")
+	data.user.settings = (UserSettingsData(data.user.id) or SafeNamespace())
 	linked = TelegramLinker(data)
 	data.message_url = linked.message
 	data.room.url = linked.room
@@ -69,8 +69,7 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 		if (quoted := update.message.reply_to_message):
 			data.quoted = TelegramMakeInputMessageData(quoted)
 		OnInputMessageParsed(data)
-		if (command := ObjGet(data, "command.name")):
-			CallEndpoint(command, EventContext(platform="telegram", event=update, manager=context), data)
+		call_endpoint(EventContext(platform="telegram", event=update, manager=context), data)
 	Thread(target=handler).start()
 
 def TelegramSender(context:EventContext, data:OutputMessageData):
@@ -83,7 +82,7 @@ def TelegramSender(context:EventContext, data:OutputMessageData):
 		if data.media:
 			for medium in data.media:
 				result = context.event.message.reply_photo(
-					(ObjGet(medium, "bytes") or ObjGet(medium, "url")),
+					(obj_get(medium, "bytes") or obj_get(medium, "url")),
 					caption=(data.text_html or data.text_markdown or data.text_plain),
 					parse_mode=("HTML" if data.text_html else "MarkdownV2" if data.text_markdown else None),
 					reply_to_message_id=replyToId)

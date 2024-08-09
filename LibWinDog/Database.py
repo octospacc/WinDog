@@ -1,12 +1,12 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 from peewee import *
 from LibWinDog.Types import *
 
-Db = SqliteDatabase("Database.sqlite")
+Db = SqliteDatabase("./Data/Database.sqlite")
 
 class BaseModel(Model):
 	class Meta:
@@ -27,4 +27,11 @@ class Room(Entity):
 	pass
 
 Db.create_tables([EntitySettings, User, Room], safe=True)
+
+class UserSettingsData():
+	def __new__(cls, user_id:str) -> SafeNamespace|None:
+		try:
+			return SafeNamespace(**EntitySettings.select().join(User).where(User.id == user_id).dicts().get())
+		except EntitySettings.DoesNotExist:
+			return None
 

@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 """ # windog config start #
 
@@ -41,9 +41,9 @@ def MatrixMain() -> bool:
 		global MatrixClient
 		MatrixClient = nio.AsyncClient(MatrixUrl, MatrixUsername)
 		login = await MatrixClient.login(password=MatrixPassword, token=MatrixToken)
-		if MatrixPassword and (not MatrixToken) and (token := ObjGet(login, "access_token")):
+		if MatrixPassword and (not MatrixToken) and (token := obj_get(login, "access_token")):
 			open("./Config.py", 'a').write(f'\n# Added automatically #\nMatrixToken = "{token}"\n')
-		if (bot_id := ObjGet(login, "user_id")):
+		if (bot_id := obj_get(login, "user_id")):
 			upgrade_username(bot_id) # ensure username is fully qualified for the API
 		await MatrixClient.sync(30000) # resync old messages first to "skip read ones"
 		asyncio.ensure_future(queue_handler())
@@ -58,8 +58,8 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 		message_id = f"matrix:{event.event_id}",
 		datetime = event.server_timestamp,
 		text_plain = event.body,
-		text_html = ObjGet(event, "formatted_body"), # this could be unavailable
-		media = ({"url": event.url} if ObjGet(event, "url") else None),
+		text_html = obj_get(event, "formatted_body"), # this could be unavailable
+		media = ({"url": event.url} if obj_get(event, "url") else None),
 		room = SafeNamespace(
 			id = f"matrix:{room.room_id}",
 			name = room.display_name,
@@ -69,11 +69,11 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 			#name = , # TODO name must be get via a separate API request (and so maybe we should cache it)
 		),
 	)
-	if (mxc_url := ObjGet(data, "media.url")) and mxc_url.startswith("mxc://"):
+	if (mxc_url := obj_get(data, "media.url")) and mxc_url.startswith("mxc://"):
 		_, _, server_name, media_id = mxc_url.split('/')
 		data.media["url"] = ("https://" + server_name + nio.Api.download(server_name, media_id)[1])
-	data.command = ParseCommand(data.text_plain, "matrix")
-	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
+	data.command = TextCommandData(data.text_plain, "matrix")
+	data.user.settings = (UserSettingsData(data.user.id) or SafeNamespace())
 	return data
 
 async def MatrixInviteHandler(room:nio.MatrixRoom, event:nio.InviteEvent) -> None:
@@ -84,8 +84,7 @@ async def MatrixMessageHandler(room:nio.MatrixRoom, event:nio.RoomMessage) -> No
 		return # ignore messages that come from the bot itself
 	data = MatrixMakeInputMessageData(room, event)
 	OnInputMessageParsed(data)
-	if (command := ObjGet(data, "command.name")):
-		CallEndpoint(command, EventContext(platform="matrix", event=SafeNamespace(room=room, event=event), manager=MatrixClient), data)
+	call_endpoint(EventContext(platform="matrix", event=SafeNamespace(room=room, event=event), manager=MatrixClient), data)
 
 def MatrixSender(context:EventContext, data:OutputMessageData):
 	try:
@@ -94,7 +93,7 @@ def MatrixSender(context:EventContext, data:OutputMessageData):
 		MatrixQueue.put((context, data))
 		return None
 	asyncio.create_task(context.manager.room_send(
-		room_id=((data.room and data.room.id) or ObjGet(context, "event.room.room_id")),
+		room_id=((data.room and data.room.id) or obj_get(context, "event.room.room_id")),
 		message_type="m.room.message",
 		content={"msgtype": "m.text", "body": data.text_plain}))
 

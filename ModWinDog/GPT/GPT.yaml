@@ -3,4 +3,6 @@ endpoints:
 		summary:
 			en: >
 				Sends a message to GPT to get back a response. Note: conversations are not yet supported, and this is more standard GPT than ChatGPT, and in general there are many bugs!
+		body:
+			en: Prompt
 

@@ -1,3 +1,6 @@
+error:
+	en: Error
+	it: Errore
 or:
 	en: or
 	it: o
@@ -10,4 +13,39 @@ text:
 usage:
 	en: Usage
 	it: Uso
+statuses:
+	102:
+		title:
+			en: Processing
+		icon: ⚙️
+	403:
+		title:
+			en: Forbidden
+			it: Vietato
+		summary:
+			en: You don't have the necessary permissions to access the requested resource or complete the specified action.
+			it: Non hai i permessi necessari per accedere alla risorsa richiesta o completare l'azione specificata.
+		icon: ⛔️
+	404:
+		title:
+			en: Not Found
+			it: Non Trovato
+		summary:
+			en: The requested resource was not found or the specified action cannot be completed.
+			it: La risorsa richiesta non è stata trovata o non è possibile completare l'azione specificata.
+		icon: 🕳️
+	500:
+		title:
+			en: Internal Error
+			it: Errore Interno
+		icon: 💣️
+	503:
+		title:
+			en: Service Unavailable
+			it: Servizio non Disponibile
+		icon: 🪦️
+	504:
+		title:
+			en: Gateway Timeout
+		icon: 🧻️
 

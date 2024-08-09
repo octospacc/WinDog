@@ -2,4 +2,7 @@ endpoints:
 	exec:
 		summary:
 			en: Execute a system command from the allowed ones and return stdout+stderr.
+		statuses:
+			404:
+				en: The requested command is not available.
 

@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 from types import SimpleNamespace
 
@@ -21,6 +21,9 @@ class SafeNamespace(DictNamespace):
 			return None
 
 # we just use these for type hinting and clearer code:
+
+class CommandData(SafeNamespace):
+	pass
 
 class EventContext(SafeNamespace):
 	pass

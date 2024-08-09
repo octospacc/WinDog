@@ -7,7 +7,7 @@
 # If you have modified the bot's code, you should set this.
 ModifiedSourceUrl = ""
 
-# Logging of system information and runtime errors. Recommended to be on at least for console.
+# Logging of system information and runtime errors. Recommended to be on in some way to diagnose errors.
 LogToConsole = True
 LogToFile = True
 
@@ -21,14 +21,8 @@ BridgesConfig = []
 
 DefaultLanguage = "en"
 Debug = False
-CmdPrefixes = ".!/"
+CommandPrefixes = ".!/"
 WebUserAgent = "WinDog v.Staging"
-
-#ModuleGroups = (ModuleGroups | {
-ModuleGroups = {
-	"Basic": "",
-	"Geek": "",
-}
 
 # Only for the platforms you want to use, uncomment the below credentials and fill with your own:
 """ # end windog config # """

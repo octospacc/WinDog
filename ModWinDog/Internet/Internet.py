@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 """ # windog config start # """
 
@@ -12,10 +12,14 @@ MicrosoftBingSettings = {}
 from urlextract import URLExtract
 from urllib.request import urlopen, Request
 
+def RandomHexString(length:int) -> str:
+	return ''.join([randchoice('0123456789abcdef') for i in range(length)])
+
 def HttpReq(url:str, method:str|None=None, *, body:bytes=None, headers:dict[str, str]={"User-Agent": WebUserAgent}):
 	return urlopen(Request(url, method=method, data=body, headers=headers))
 
-def cEmbedded(context:EventContext, data:InputMessageData) -> None:
+def cEmbedded(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
 	if len(data.command.tokens) >= 2:
 		# Find links in command body
 		text = (data.text_markdown + ' ' + data.text_plain)
@@ -23,9 +27,7 @@ def cEmbedded(context:EventContext, data:InputMessageData) -> None:
 		# Find links in quoted message
 		text = ((quoted.text_markdown or '') + ' ' + (quoted.text_plain or '') + ' ' + (quoted.text_html or ''))
 	else:
-		# TODO Error message
-		return
-	pass
+		return send_status_400(context, language)
 	urls = URLExtract().find_urls(text)
 	if len(urls) > 0:
 		proto = 'https://'
@@ -47,55 +49,57 @@ def cEmbedded(context:EventContext, data:InputMessageData) -> None:
 			elif urlDomain == "vm.tiktok.com":
 				urlDomain = "vm.vxtiktok.com"
 			url = (urlDomain + '/' + '/'.join(url.split('/')[1:]))
-		SendMessage(context, {"text_plain": f"{{{proto}{url}}}"})
-	# else TODO error message?
+		return send_message(context, {"text_plain": f"{{{proto}{url}}}"})
+	return send_message(context, {"text_plain": "No links found."})
 
-def cWeb(context:EventContext, data:InputMessageData) -> None:
+def cWeb(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
 	if not (query := data.command.body):
-		return # TODO show message
+		return send_status_400(context, language)
 	try:
-		QueryUrl = urlparse.quote(query)
-		Req = HttpReq(f'https://html.duckduckgo.com/html?q={QueryUrl}')
-		Caption = f'🦆🔎 "{query}": https://duckduckgo.com/?q={QueryUrl}\n\n'
-		Index = 0
-		for Line in Req.read().decode().replace('\t', ' ').splitlines():
-			if ' class="result__a" ' in Line and ' href="//duckduckgo.com/l/?uddg=' in Line:
-				Index += 1
-				Link = urlparse.unquote(Line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
-				Title = Line.strip().split('</a>')[0].strip().split('</span>')[-1].strip().split('>')
-				if len(Title) > 1:
-					Title = html_unescape(Title[1].strip())
-					Caption += f'[{Index}] {Title} : {{{Link}}}\n\n'
+		query_url = urlparse.quote(query)
+		request = HttpReq(f'https://html.duckduckgo.com/html?q={query_url}')
+		caption = f'🦆🔎 "{query}": https://duckduckgo.com/?q={query_url}\n\n'
+		index = 0
+		for line in request.read().decode().replace('\t', ' ').splitlines():
+			if ' class="result__a" ' in line and ' href="//duckduckgo.com/l/?uddg=' in line:
+				index += 1
+				link = urlparse.unquote(line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
+				title = line.strip().split('</a>')[0].strip().split('</span>')[-1].strip().split('>')
+				if len(title) > 1:
+					title = html_unescape(title[1].strip())
+					caption += f'[{index}] {title} : {{{link}}}\n\n'
 				else:
 					continue
-		SendMessage(context, {"TextPlain": f'{Caption}...'})
+		return send_message(context, {"text_plain": f'{caption}...'})
 	except Exception:
-		raise
+		return send_status_error(context, language)
 
-def cImages(context:EventContext, data:InputMessageData) -> None:
+def cImages(context:EventContext, data:InputMessageData):
 	pass
 
-def cNews(context:EventContext, data:InputMessageData) -> None:
+def cNews(context:EventContext, data:InputMessageData):
 	pass
 
-def cTranslate(context:EventContext, data:InputMessageData) -> None:
+def cTranslate(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
 	instances = ["lingva.ml", "lingva.lunar.icu"]
-	language_to = data.command.arguments["language_to"]
+	language_to = data.command.arguments.language_to
 	text_input = (data.command.body or (data.quoted and data.quoted.text_plain))
 	if not (text_input and language_to):
-		return SendMessage(context, {"TextPlain": f"Usage: /translate <to language> <text>"})
+		return send_status_400(context, language)
 	try:
 		result = json.loads(HttpReq(f'https://{randchoice(instances)}/api/v1/auto/{language_to}/{urlparse.quote(text_input)}').read())
-		SendMessage(context, {"TextPlain": f"[{result['info']['detectedSource']} (auto) -> {language_to}]\n\n{result['translation']}"})
+		return send_message(context, {"text_plain": f"[{result['info']['detectedSource']} (auto) -> {language_to}]\n\n{result['translation']}"})
 	except Exception:
-		raise
+		return send_status_error(context, language)
 
 # unsplash source appears to be deprecated! <https://old.reddit.com/r/unsplash/comments/s13x4h/what_happened_to_sourceunsplashcom/l65epl8/>
 #def cUnsplash(context:EventContext, data:InputMessageData) -> None:
 #	try:
 #		Req = HttpReq(f'https://source.unsplash.com/random/?{urlparse.quote(data.command.body)}')
 #		ImgUrl = Req.geturl().split('?')[0]
-#		SendMessage(context, {
+#		send_message(context, {
 #			"TextPlain": f'{{{ImgUrl}}}',
 #			"TextMarkdown": MarkdownCode(ImgUrl, True),
 #			"Media": Req.read(),
@@ -103,20 +107,21 @@ def cTranslate(context:EventContext, data:InputMessageData) -> None:
 #	except Exception:
 #		raise
 
-def cSafebooru(context:EventContext, data:InputMessageData) -> None:
-	ApiUrl = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
+def cSafebooru(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
+	api_url = 'https://safebooru.org/index.php?page=dapi&s=post&q=index&limit=100&tags='
 	try:
 		img_id, img_url = None, None
 		if (query := data.command.body):
 			for i in range(7): # retry a bunch of times if we can't find a really random result
-				ImgUrls = HttpReq(f'{ApiUrl}md5:{RandHexStr(3)}%20{urlparse.quote(query)}').read().decode().split(' file_url="')[1:]
-				if ImgUrls:
+				img_urls = HttpReq(f'{api_url}md5:{RandomHexString(3)}%20{urlparse.quote(query)}').read().decode().split(' file_url="')[1:]
+				if img_urls:
 					break
-			if not ImgUrls: # literal search
-				ImgUrls = HttpReq(f'{ApiUrl}{urlparse.quote(query)}').read().decode().split(' file_url="')[1:]
-			if not ImgUrls:
-				return SendMessage(context, {"Text": "Error: Could not get any result from Safebooru."})
-			ImgXml = choice(ImgUrls)
+			if not img_urls: # literal search
+				img_urls = HttpReq(f'{api_url}{urlparse.quote(query)}').read().decode().split(' file_url="')[1:]
+			if not img_urls:
+				return send_status(context, 404, language, "Could not get any result from Safebooru.", summary=False)
+			ImgXml = choice(img_urls)
 			img_url = ImgXml.split('"')[0]
 			img_id = ImgXml.split(' id="')[1].split('"')[0]
 		else:
@@ -127,14 +132,14 @@ def cSafebooru(context:EventContext, data:InputMessageData) -> None:
 					img_id = img_url.split('?')[-1]
 					break
 		if img_url:
-			SendMessage(context, OutputMessageData(
+			return send_message(context, OutputMessageData(
 				text_plain=f"[{img_id}]\n{{{img_url}}}",
 				text_html=f"[<code>{img_id}</code>]\n<pre>{img_url}</pre>",
 				media={"url": img_url}))
 		else:
-			pass
-	except Exception as error:
-		raise
+			return send_status_400(context, language)
+	except Exception:
+		return send_status_error(context, language)
 
 RegisterModule(name="Internet", endpoints=[
 	SafeNamespace(names=["embedded"], handler=cEmbedded, body=False, quoted=False),

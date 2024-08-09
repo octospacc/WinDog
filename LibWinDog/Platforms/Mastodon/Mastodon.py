@@ -1,7 +1,7 @@
-# ================================== #
-# WinDog multi-purpose chatbot       #
-# Licensed under AGPLv3 by OctoSpacc #
-# ================================== #
+# ==================================== #
+#  WinDog multi-purpose chatbot        #
+#  Licensed under AGPLv3 by OctoSpacc  #
+# ==================================== #
 
 """ # windog config start #
 
@@ -35,20 +35,19 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 	command_tokens = data.text_plain.strip().replace("\t", " ").split(" ")
 	while command_tokens[0].strip().startswith('@') or not command_tokens[0]:
 		command_tokens.pop(0)
-	data.command = ParseCommand(" ".join(command_tokens), "mastodon")
+	data.command = TextCommandData(" ".join(command_tokens), "mastodon")
 	data.user = UserData(
 		id = ("mastodon:" + strip_url_scheme(status["account"]["uri"])),
 		name = status["account"]["display_name"],
 	)
-	data.user.settings = (GetUserSettings(data.user.id) or SafeNamespace())
+	data.user.settings = (UserSettingsData(data.user.id) or SafeNamespace())
 	return data
 
 def MastodonHandler(event, Mastodon):
 	if event["type"] == "mention":
 		data = MastodonMakeInputMessageData(event["status"])
 		OnInputMessageParsed(data)
-		if (command := ObjGet(data, "command.name")):
-			CallEndpoint(command, EventContext(platform="mastodon", event=event, manager=Mastodon), data)
+		call_endpoint(EventContext(platform="mastodon", event=event, manager=Mastodon), data)
 
 def MastodonSender(context:EventContext, data:OutputMessageData) -> None:
 	media_results = None
