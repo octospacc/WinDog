@@ -20,7 +20,7 @@ from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContex
 
 TelegramClient = None
 
-def TelegramMain() -> bool:
+def TelegramMain(path:str) -> bool:
 	if not TelegramToken:
 		return False
 	global TelegramClient
@@ -55,7 +55,7 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 		),
 	)
 	data.command = TextCommandData(data.text_plain, "telegram")
-	data.user.settings = (UserSettingsData(data.user.id) or SafeNamespace())
+	data.user.settings = UserSettingsData(data.user.id)
 	linked = TelegramLinker(data)
 	data.message_url = linked.message
 	data.room.url = linked.room

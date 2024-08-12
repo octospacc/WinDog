@@ -16,7 +16,7 @@ import mastodon
 from bs4 import BeautifulSoup
 from magic import Magic
 
-def MastodonMain() -> bool:
+def MastodonMain(path:str) -> bool:
 	if not (MastodonUrl and MastodonToken):
 		return False
 	Mastodon = mastodon.Mastodon(api_base_url=MastodonUrl, access_token=MastodonToken)
@@ -40,7 +40,7 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 		id = ("mastodon:" + strip_url_scheme(status["account"]["uri"])),
 		name = status["account"]["display_name"],
 	)
-	data.user.settings = (UserSettingsData(data.user.id) or SafeNamespace())
+	data.user.settings = UserSettingsData(data.user.id)
 	return data
 
 def MastodonHandler(event, Mastodon):

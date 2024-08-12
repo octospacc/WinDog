@@ -20,7 +20,8 @@ def cHelp(context:EventContext, data:InputMessageData) -> None:
 			text += (f"\n\n{module}" + (f": {summary}" if summary else ''))
 			for endpoint in endpoints:
 				summary = Modules[module].get_string(f"endpoints.{endpoint.names[0]}.summary", language)
-				text += (f"\n* {prefix}{', {prefix}'.join(endpoint.names)}" + (f": {summary}" if summary else ''))
+				text += (f"\n* {prefix}{f', {prefix}'.join(endpoint.names)}"
+					+ (f": {summary}" if summary else ''))
 			text = text.strip()
 	return send_message(context, {"text_html": text})
 

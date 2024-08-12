@@ -29,7 +29,7 @@ def cExec(context:EventContext, data:InputMessageData):
 
 def cRestart(context:EventContext, data:InputMessageData):
 	if (data.user.id not in AdminIds) and (data.user.tag not in AdminIds):
-		return send_message(context, {"text_plain": "Permission denied."})
+		return send_status(context, 403, data.user.settings.language)
 	open("./.WinDog.Restart.lock", 'w').close()
 	return send_message(context, {"text_plain": "Bot restart queued."})
 

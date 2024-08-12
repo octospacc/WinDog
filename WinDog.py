@@ -328,7 +328,7 @@ def app_main() -> None:
 	#SetupDb()
 	app_log(f"📨️ Initializing Platforms... ", newline=False)
 	for platform in Platforms.values():
-		if platform.main():
+		if platform.main(f"./LibWinDog/Platforms/{platform.name}"):
 			app_log(f"{platform.name}, ", inline=True)
 	app_log("...Done. ✅️", inline=True, newline=True)
 	app_log("🐶️ WinDog Ready!")

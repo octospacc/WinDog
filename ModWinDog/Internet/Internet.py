@@ -10,6 +10,7 @@ MicrosoftBingSettings = {}
 """ # end windog config # """
 
 from urlextract import URLExtract
+from urllib import parse as urlparse
 from urllib.request import urlopen, Request
 
 def RandomHexString(length:int) -> str:

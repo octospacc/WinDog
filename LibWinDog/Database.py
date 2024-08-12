@@ -29,9 +29,11 @@ class Room(Entity):
 Db.create_tables([EntitySettings, User, Room], safe=True)
 
 class UserSettingsData():
-	def __new__(cls, user_id:str) -> SafeNamespace|None:
+	def __new__(cls, user_id:str=None) -> SafeNamespace:
+		settings = None
 		try:
-			return SafeNamespace(**EntitySettings.select().join(User).where(User.id == user_id).dicts().get())
+			settings = EntitySettings.select().join(User).where(User.id == user_id).dicts().get()
 		except EntitySettings.DoesNotExist:
-			return None
+			pass
+		return SafeNamespace(**(settings or {}), _exists=bool(settings))
 

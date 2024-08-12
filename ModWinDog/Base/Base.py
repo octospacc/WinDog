@@ -18,11 +18,13 @@ UserSettingsLimits = {
 
 def cConfig(context:EventContext, data:InputMessageData):
 	language = data.user.settings.language
-	if not (settings := UserSettingsData(data.user.id)):
+	if (key := data.command.arguments.get):
+		key = key.lower()
+	if (not key) or (key not in UserSettingsLimits):
+		return send_status_400(context, language)
+	if not (settings := UserSettingsData(data.user.id))._exists:
 		User.update(settings=EntitySettings.create()).where(User.id == data.user.id).execute()
 		settings = UserSettingsData(data.user.id)
-	if not (key := data.command.arguments.get) or (key not in UserSettingsLimits):
-		return send_status_400(context, language)
 	if (value := data.command.body):
 		if len(value) > UserSettingsLimits[key]:
 			return send_status(context, 500, language)
@@ -52,7 +54,7 @@ def cPing(context:EventContext, data:InputMessageData):
 
 RegisterModule(name="Base", endpoints=[
 	SafeNamespace(names=["source"], handler=cSource),
-	SafeNamespace(names=["config"], handler=cConfig, body=False, arguments={
+	SafeNamespace(names=["config", "settings"], handler=cConfig, body=False, arguments={
 		"get": True,
 	}),
 	#SafeNamespace(names=["gdpr"], summary="Operations for european citizens regarding your personal data.", handler=cGdpr),

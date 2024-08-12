@@ -25,7 +25,7 @@ import queue
 MatrixClient = None
 MatrixQueue = queue.Queue()
 
-def MatrixMain() -> bool:
+def MatrixMain(path:str) -> bool:
 	if not (MatrixUrl and MatrixUsername and (MatrixPassword or MatrixToken)):
 		return False
 	def upgrade_username(new:str):
@@ -73,7 +73,7 @@ def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> In
 		_, _, server_name, media_id = mxc_url.split('/')
 		data.media["url"] = ("https://" + server_name + nio.Api.download(server_name, media_id)[1])
 	data.command = TextCommandData(data.text_plain, "matrix")
-	data.user.settings = (UserSettingsData(data.user.id) or SafeNamespace())
+	data.user.settings = UserSettingsData(data.user.id)
 	return data
 
 async def MatrixInviteHandler(room:nio.MatrixRoom, event:nio.InviteEvent) -> None:
