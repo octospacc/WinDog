@@ -142,7 +142,7 @@ def cSafebooru(context:EventContext, data:InputMessageData):
 	except Exception:
 		return send_status_error(context, language)
 
-RegisterModule(name="Internet", endpoints=[
+register_module(name="Internet", endpoints=[
 	SafeNamespace(names=["embedded"], handler=cEmbedded, body=False, quoted=False),
 	SafeNamespace(names=["web"], handler=cWeb, body=True),
 	SafeNamespace(names=["translate"], handler=cTranslate, body=False, quoted=False, arguments={

@@ -41,7 +41,7 @@ def mCodings(context:EventContext, data:InputMessageData):
 	except Exception:
 		return send_status_error(context, language)
 
-RegisterModule(name="Codings", group="Geek", endpoints=[
+register_module(name="Codings", group="Geek", endpoints=[
 	SafeNamespace(names=["encode", "decode"], handler=mCodings, body=False, quoted=False, arguments={
 		"algorithm": True,
 	}, help_extra=(lambda endpoint, lang: f'{endpoint.module.get_string("algorithms", lang)}: <code>{"</code>, <code>".join(CodingsAlgorithms)}</code>.')),

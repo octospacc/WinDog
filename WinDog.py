@@ -127,6 +127,22 @@ def strip_url_scheme(url:str) -> str:
 	tokens = urlparse.urlparse(url)
 	return f"{tokens.netloc}{tokens.path}"
 
+def parse_command_arguments(command, endpoint, count:int=None):
+	arguments = SafeNamespace()
+	body = command.body
+	index = 1
+	for key in (endpoint.arguments or range(count)):
+		if (not count) and (endpoint.body != None) and (endpoint.arguments[key] == False):
+			continue # skip optional (False) arguments for now if command expects a body, they will be implemented later
+		try:
+			value = command.tokens[index]
+			body = body[len(value):].strip()
+		except IndexError:
+			value = None
+		arguments[str(key)] = value
+		index += 1
+	return [arguments, body]
+
 def TextCommandData(text:str, platform:str) -> CommandData|None:
 	if not text:
 		return None
@@ -145,27 +161,17 @@ def TextCommandData(text:str, platform:str) -> CommandData|None:
 	command.body = text[len(command.tokens[0]):].strip()
 	if not (endpoint := obj_get(Endpoints, command.name)):
 		return command # TODO shouldn't this return None?
-	if (endpoint.arguments):
-		command.arguments = SafeNamespace()
-		index = 1
-		for key in endpoint.arguments:
-			if (endpoint.body != None) and (endpoint.arguments[key] == False):
-				continue # skip optional (False) arguments for now if command expects a body, they will be implemented later
-			try:
-				value = command.tokens[index]
-				command.body = command.body[len(value):].strip()
-			except IndexError:
-				value = None
-			command.arguments[key] = value
-			index += 1
+	command.parse_arguments = (lambda count=None: parse_command_arguments(command, endpoint, count))
+	if endpoint.arguments:
+		[command.arguments, command.body] = command.parse_arguments()
 	return command
 
-def OnInputMessageParsed(data:InputMessageData) -> None:
+def on_input_message_parsed(data:InputMessageData) -> None:
 	dump_message(data, prefix='> ')
 	handle_bridging(send_message, data, from_sent=False)
 	update_user_db(data.user)
 
-def OnOutputMessageSent(output_data:OutputMessageData, input_data:InputMessageData, from_sent:bool) -> None:
+def on_output_message_sent(output_data:OutputMessageData, input_data:InputMessageData, from_sent:bool) -> None:
 	if (not from_sent) and input_data:
 		output_data = ObjectUnion(output_data, {"room": input_data.room})
 	dump_message(output_data, prefix=f'<{"*" if from_sent else " "}')
@@ -188,6 +194,14 @@ def handle_bridging(method:callable, data:MessageData, from_sent:bool):
 				SafeNamespace(platform=room_id.split(':')[0]),
 				ObjectUnion(data, {"room": SafeNamespace(id=room_id)}, ({"text_plain": text_plain, "text_markdown": None, "text_html": text_html} if data.user else None)),
 				from_sent=True)
+
+def check_bot_admin(data:InputMessageData|UserData) -> bool:
+	user = (data.user or data)
+	return ((user.id in AdminIds) or (user.tag in AdminIds))
+
+# TODO make this real
+def check_room_admin(data:InputMessageData|UserData) -> bool:
+	return check_bot_admin(data)
 
 def update_user_db(user:SafeNamespace) -> None:
 	if not (user and user.id):
@@ -255,23 +269,23 @@ def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool
 	if (not context.manager) and (manager := platform.manager_class):
 		context.manager = call_or_return(manager)
 	result = platform.sender(context, data)
-	OnOutputMessageSent(data, context.data, from_sent)
+	on_output_message_sent(data, context.data, from_sent)
 	return result
 
 def send_notice(context:EventContext, data):
-	pass
+	...
 
 def edit_message(context:EventContext, data:MessageData):
-	pass
+	...
 
 def delete_message(context:EventContext, data:MessageData):
-	pass
+	...
 
-def RegisterPlatform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
+def register_platform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
 	Platforms[name.lower()] = SafeNamespace(name=name, main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class, agent_info=agent_info)
 	app_log(f"{name}, ", inline=True)
 
-def RegisterModule(name:str, endpoints:dict, *, group:str|None=None) -> None:
+def register_module(name:str, endpoints:dict, *, group:str|None=None) -> None:
 	module = SafeNamespace(group=group, endpoints=endpoints, get_string=(lambda query, lang=None: None))
 	if isfile(file := f"./ModWinDog/{name}/{name}.yaml"):
 		module.strings = good_yaml_load(open(file, 'r').read())

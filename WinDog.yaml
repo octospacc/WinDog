@@ -17,7 +17,25 @@ statuses:
 	102:
 		title:
 			en: Processing
+		summary:
+			en: Your request has been accepted and is currently being processed.
+			it: La tua richiesta è stata accolta e sta venendo processata.
 		icon: ⚙️
+	200:
+		title:
+			en: OK
+		summary:
+			en: Your request has completed successfully.
+			it: La tua richiesta è terminata con successo.
+		icon: 👌️
+	201:
+		title:
+			en: Created
+			it: Creato
+		summary:
+			en: The specified resource has been successfully created.
+			it: La risorsa specificata è stata creata con successo.
+		icon: 🪙️
 	403:
 		title:
 			en: Forbidden

@@ -21,7 +21,7 @@ def mMultifun(context:EventContext, data:InputMessageData):
 			text = choice(fun_strings["empty"])
 	return send_message(context, {"text_html": text, "ReplyTo": reply_to})
 
-RegisterModule(name="Multifun", endpoints=[
+register_module(name="Multifun", endpoints=[
 	SafeNamespace(names=["hug", "pat", "poke", "cuddle", "hands", "floor", "sessocto"], handler=mMultifun),
 ])
 

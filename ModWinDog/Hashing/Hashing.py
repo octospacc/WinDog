@@ -13,7 +13,7 @@ def cHash(context:EventContext, data:InputMessageData):
 	return send_message(context, {
 		"text_html": f"<pre>{html_escape(hashlib.new(algorithm, text_input.encode()).hexdigest())}</pre>"})
 
-RegisterModule(name="Hashing", group="Geek", endpoints=[
+register_module(name="Hashing", group="Geek", endpoints=[
 	SafeNamespace(names=["hash"], handler=cHash, body=False, quoted=False, arguments={
 		"algorithm": True,
 	}, help_extra=(lambda endpoint, lang: f'{endpoint.get_string("algorithms", lang)}: <code>{"</code>, <code>".join(hashlib.algorithms_available)}</code>.')),

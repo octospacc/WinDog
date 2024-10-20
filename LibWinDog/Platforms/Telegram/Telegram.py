@@ -68,7 +68,7 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 		data = TelegramMakeInputMessageData(update.message)
 		if (quoted := update.message.reply_to_message):
 			data.quoted = TelegramMakeInputMessageData(quoted)
-		OnInputMessageParsed(data)
+		on_input_message_parsed(data)
 		call_endpoint(EventContext(platform="telegram", event=update, manager=context), data)
 	Thread(target=handler).start()
 
@@ -107,7 +107,7 @@ def TelegramLinker(data:InputMessageData) -> SafeNamespace:
 				linked.message = f"https://t.me/c/{room_id}/{message_id}"
 	return linked
 
-RegisterPlatform(
+register_platform(
 	name="Telegram",
 	main=TelegramMain,
 	sender=TelegramSender,

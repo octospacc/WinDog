@@ -8,7 +8,7 @@ def cStart(context:EventContext, data:InputMessageData):
 		text_html=context.endpoint.get_string(
 			"start", data.user.settings.language).format(data.user.name)))
 
-RegisterModule(name="Start", endpoints=[
+register_module(name="Start", endpoints=[
 	SafeNamespace(names=["start"], handler=cStart),
 ])
 

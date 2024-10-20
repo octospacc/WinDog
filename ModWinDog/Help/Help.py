@@ -25,7 +25,7 @@ def cHelp(context:EventContext, data:InputMessageData) -> None:
 			text = text.strip()
 	return send_message(context, {"text_html": text})
 
-RegisterModule(name="Help", group="Basic", endpoints=[
+register_module(name="Help", group="Basic", endpoints=[
 	SafeNamespace(names=["help"], handler=cHelp, arguments={
 		"endpoint": False,
 	}),

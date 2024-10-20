@@ -83,7 +83,7 @@ async def MatrixMessageHandler(room:nio.MatrixRoom, event:nio.RoomMessage) -> No
 	if MatrixUsername == event.sender:
 		return # ignore messages that come from the bot itself
 	data = MatrixMakeInputMessageData(room, event)
-	OnInputMessageParsed(data)
+	on_input_message_parsed(data)
 	call_endpoint(EventContext(platform="matrix", event=SafeNamespace(room=room, event=event), manager=MatrixClient), data)
 
 def MatrixSender(context:EventContext, data:OutputMessageData):
@@ -97,5 +97,5 @@ def MatrixSender(context:EventContext, data:OutputMessageData):
 		message_type="m.room.message",
 		content={"msgtype": "m.text", "body": data.text_plain}))
 
-RegisterPlatform(name="Matrix", main=MatrixMain, sender=MatrixSender, manager_class=(lambda:MatrixClient))
+register_platform(name="Matrix", main=MatrixMain, sender=MatrixSender, manager_class=(lambda:MatrixClient))
 

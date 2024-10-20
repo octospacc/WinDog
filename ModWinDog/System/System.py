@@ -28,12 +28,12 @@ def cExec(context:EventContext, data:InputMessageData):
 	return send_message(context, {"text_html": f'<pre>{html_escape(text)}</pre>'})
 
 def cRestart(context:EventContext, data:InputMessageData):
-	if (data.user.id not in AdminIds) and (data.user.tag not in AdminIds):
+	if not check_bot_admin(data.user):
 		return send_status(context, 403, data.user.settings.language)
 	open("./.WinDog.Restart.lock", 'w').close()
 	return send_message(context, {"text_plain": "Bot restart queued."})
 
-RegisterModule(name="System", endpoints=[
+register_module(name="System", endpoints=[
 	SafeNamespace(names=["exec"], handler=cExec, body=True),
 	SafeNamespace(names=["restart"], handler=cRestart),
 ])

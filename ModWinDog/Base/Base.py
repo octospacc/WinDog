@@ -52,7 +52,7 @@ def cPing(context:EventContext, data:InputMessageData):
 #def cEval(context:EventContext, data:InputMessageData) -> None:
 #	send_message(context, {"Text": choice(Locale.__('eval'))})
 
-RegisterModule(name="Base", endpoints=[
+register_module(name="Base", endpoints=[
 	SafeNamespace(names=["source"], handler=cSource),
 	SafeNamespace(names=["config", "settings"], handler=cConfig, body=False, arguments={
 		"get": True,

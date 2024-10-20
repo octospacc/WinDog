@@ -12,10 +12,10 @@ def cBroadcast(context:EventContext, data:InputMessageData):
 	if not (destination and text):
 		return send_status_400(context, language)
 	result = send_message(context, {"text_plain": text, "room": SafeNamespace(id=destination)})
-	send_message(context, {"text_plain": "Executed."})
+	send_status(context, 201, language)
 	return result
 
-RegisterModule(name="Broadcast", endpoints=[
+register_module(name="Broadcast", endpoints=[
 	SafeNamespace(names=["broadcast"], handler=cBroadcast, body=True, arguments={
 		"destination": True,
 	}),

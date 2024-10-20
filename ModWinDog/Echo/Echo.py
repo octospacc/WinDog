@@ -20,7 +20,7 @@ def cEcho(context:EventContext, data:InputMessageData):
 			prefix = ''
 	return send_message(context, {"text_html": (prefix + html_escape(text))})
 
-RegisterModule(name="Echo", endpoints=[
+register_module(name="Echo", endpoints=[
 	SafeNamespace(names=["echo"], handler=cEcho, body=True),
 ])
 

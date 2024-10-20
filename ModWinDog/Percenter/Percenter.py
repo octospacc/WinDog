@@ -15,7 +15,7 @@ def mPercenter(context:EventContext, data:InputMessageData):
 		) or context.endpoint.get_help_text(data.user.settings.language)
 	).format(RandomPercentString(), data.command.body)})
 
-RegisterModule(name="Percenter", endpoints=[
+register_module(name="Percenter", endpoints=[
 	SafeNamespace(names=["wish", "level"], handler=mPercenter, body=True),
 ])
 

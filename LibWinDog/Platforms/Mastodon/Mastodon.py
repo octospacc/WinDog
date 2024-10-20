@@ -46,7 +46,7 @@ def MastodonMakeInputMessageData(status:dict) -> InputMessageData:
 def MastodonHandler(event, Mastodon):
 	if event["type"] == "mention":
 		data = MastodonMakeInputMessageData(event["status"])
-		OnInputMessageParsed(data)
+		on_input_message_parsed(data)
 		call_endpoint(EventContext(platform="mastodon", event=event, manager=Mastodon), data)
 
 def MastodonSender(context:EventContext, data:OutputMessageData) -> None:
@@ -67,5 +67,5 @@ def MastodonSender(context:EventContext, data:OutputMessageData) -> None:
 			visibility=('direct' if context.event['status']['visibility'] == 'direct' else 'unlisted'),
 		)
 
-RegisterPlatform(name="Mastodon", main=MastodonMain, sender=MastodonSender, manager_class=mastodon.Mastodon)
+register_platform(name="Mastodon", main=MastodonMain, sender=MastodonSender, manager_class=mastodon.Mastodon)
 

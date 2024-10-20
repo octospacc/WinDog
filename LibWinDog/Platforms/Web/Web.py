@@ -55,7 +55,7 @@ class WebServerClass(BaseHTTPRequestHandler):
 	def init_new_room(self, room_id:str=None):
 		if not room_id:
 			room_id = str(uuid7().hex)
-		WebQueues[room_id] = {}#{"0": queue.Queue()}
+		WebQueues[room_id] = {}
 		#WebPushEvent(room_id, ".start", self.headers)
 		#Thread(target=lambda:WebAntiDropEnqueue(room_id)).start()
 		self.do_redirect(f"/{room_id}")
@@ -65,24 +65,25 @@ class WebServerClass(BaseHTTPRequestHandler):
 		self.send_header("Content-Type", "text/html; charset=UTF-8")
 		self.send_header("Content-Encoding", "chunked")
 		self.end_headers()
-		target = f"/{room_id}/{user_id}?page-target=1#load-target"
 		if not is_redirected:
-			return self.wfile.write(f'''{web_html_prefix(head_extra=f'<meta http-equiv="refresh" content="0; url={target}">')}
+			target = f"/{room_id}/{user_id}?page-target=1#load-target"
+			self.wfile.write(f'''{web_html_prefix(head_extra=f'<meta http-equiv="refresh" content="0; url={target}">')}
 <h3><a href="/" target="_parent">WinDog 🐶️</a></h3>
 <p>Initializing... <a href="{target}">Click here</a> if you are not automatically redirected.</p>'''.encode())
-		self.wfile.write(f'''{web_html_prefix()}
+		else:
+			self.wfile.write(f'''{web_html_prefix()}
 <h3><a href="/" target="_parent">WinDog 🐶️</a></h3>
 <div class="sticky-box">
-<p id="load-target" style="display: none;"><span style="color: red;">Background loading seems to have stopped...</span> Please open a new chat or <a href="{target}">reload this one</a> if you can't send new messages.</p>
+<p id="load-target" style="display: none;"><span style="color: red;">Background loading seems to have stopped...</span> Please open a new chat or <a href="/{room_id}">reload this current one</a> if you can't send new messages.</p>
 <div class="input-frame"><iframe src="/form/{room_id}/{user_id}"></iframe></div>
 </div>
 <div style="display: flex; flex-direction: column-reverse;">'''.encode())
-		while True:
-			# TODO this apparently makes us lose threads, we should handle dropped connections?
-			try:
-				self.wfile.write(WebMakeMessageHtml(WebQueues[room_id][user_id].get(block=False), user_id).encode())
-			except queue.Empty:
-				time.sleep(0.01)
+			while True:
+				# TODO this apparently makes us lose threads, we should handle dropped connections?
+				try:
+					self.wfile.write(WebMakeMessageHtml(WebQueues[room_id][user_id].get(block=False), user_id).encode())
+				except queue.Empty:
+					time.sleep(0.01)
 
 	def send_form_html(self, room_id:str, user_id:str):
 		self.send_text_content((f'''{web_html_prefix("form no-margin")}
@@ -158,7 +159,7 @@ def WebPushEvent(room_id:str, user_id:str, text:str, headers:dict[str:str]):
 			settings = UserSettingsData(),
 		),
 	)
-	OnInputMessageParsed(data)
+	on_input_message_parsed(data)
 	WebSender(context, ObjectUnion(data, {"from_user": True}))
 	call_endpoint(context, data)
 
@@ -183,7 +184,6 @@ def WebMain(path:str) -> bool:
 	return True
 
 def WebSender(context:EventContext, data:OutputMessageData) -> None:
-	#WebQueues[context.event.room_id][context.event.user_id].put(data)
 	for user_id in (room := WebQueues[context.event.room_id]):
 		room[user_id].put(data)
 
@@ -194,5 +194,5 @@ def WebAntiDropEnqueue(room_id:str, user_id:str):
 		WebQueues[room_id][user_id].put(OutputMessageData())
 		time.sleep(WebConfig["anti_drop_interval"])
 
-RegisterPlatform(name="Web", main=WebMain, sender=WebSender)
+register_platform(name="Web", main=WebMain, sender=WebSender)
 

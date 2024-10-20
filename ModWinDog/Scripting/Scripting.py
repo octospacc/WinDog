@@ -50,7 +50,7 @@ end)()"""))})
 	except (LuaError, LuaSyntaxError):
 		return send_status_error(context, data.user.settings.language)
 
-RegisterModule(name="Scripting", group="Geek", endpoints=[
+register_module(name="Scripting", group="Geek", endpoints=[
 	SafeNamespace(names=["lua"], handler=cLua, body=False, quoted=False),
 ])
 
