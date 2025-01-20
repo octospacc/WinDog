@@ -1,5 +1,7 @@
 /Data/
 /downloaded_files/
+*.bak
+*.tmp
 *.pyc
 *.lock
 /RunWinDog.py

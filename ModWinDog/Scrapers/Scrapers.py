@@ -50,7 +50,7 @@ def cDalleSelenium(context:EventContext, data:InputMessageData):
 		driver.find_element('form a[role="button"]').submit()
 		try:
 			driver.find_element('img.gil_err_img[alt="Content warning"]')
-			send_message(context, {"text_plain": f"Content warning: This prompt {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read()}})
+			send_message(context, {"text_plain": f"Content warning: This prompt {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read(), "type": "image/"}})
 			return closeSelenium(driver_index, driver)
 		except Exception: # warning element was not found, we should be good
 			pass
@@ -64,7 +64,7 @@ def cDalleSelenium(context:EventContext, data:InputMessageData):
 			if not len(img_list):
 				try:
 					driver.find_element('img.gil_err_img[alt="Unsafe image content detected"]')
-					result = send_message(context, {"text_plain": f"Unsafe image content detected: This result {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read()}})
+					result = send_message(context, {"text_plain": f"Unsafe image content detected: This result {warning_text}", "media": {"bytes": open("./Assets/ImageCreator-CodeOfConduct.png", 'rb').read(), "type": "image/"}})
 					closeSelenium(driver_index, driver)
 					return result
 				except: # no error is present, so we just have to wait more for the images
@@ -108,7 +108,7 @@ def cCraiyonSelenium(context:EventContext, data:InputMessageData):
 				continue
 			img_array = []
 			for img_elem in img_list:
-				img_array.append({"url": img_elem.get_attribute("src")}) #, "bytes": HttpReq(img_url).read()})
+				img_array.append({"url": img_elem.get_attribute("src"), "type": "image/"}) #, "bytes": HttpReq(img_url).read()})
 			result = send_message(context, {
 				"text_plain": f'"{prompt}"',
 				"text_html": f'"<i>{html_escape(prompt)}</i>"',

@@ -20,24 +20,7 @@ from bs4 import BeautifulSoup
 from LibWinDog.Types import *
 from LibWinDog.Config import *
 from LibWinDog.Database import *
-
-def ObjectUnion(*objects:object, clazz:object=None):
-	dikt = {}
-	auto_clazz = objects[0].__class__
-	for obj in objects:
-		if not obj:
-			continue
-		if type(obj) == dict:
-			obj = (clazz or SafeNamespace)(**obj)
-		for key, value in tuple(obj.__dict__.items()):
-			dikt[key] = value
-	return (clazz or auto_clazz)(**dikt)
-
-def ObjectClone(obj:object):
-	return ObjectUnion(obj, {});
-
-def SureArray(array:any) -> list|tuple:
-	return (array if type(array) in [list, tuple] else [array])
+from LibWinDog.Utils import *
 
 def app_log(text:str=None, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
 	if not text:
@@ -57,25 +40,6 @@ def get_exception_text(full:bool=False):
 	if full:
 		text = f'@{exc_traceback.tb_frame.f_code.co_name}:{exc_traceback.tb_lineno} {text}'
 	return text
-
-def call_or_return(obj:any, *args) -> any:
-	return (obj(*args) if callable(obj) else obj)
-
-def obj_get(node:object, query:str, /) -> any:
-	for key in query.split('.'):
-		if hasattr(node, "__getitem__") and node.__getitem__:
-			# dicts and such
-			method = "__getitem__"
-			exception = KeyError
-		else:
-			# namespaces and such
-			method = "__getattribute__"
-			exception = AttributeError
-		try:
-			node = node.__getattribute__(method)(key)
-		except exception:
-			return None
-	return node
 
 def good_yaml_load(text:str):
 	return yaml_load(text.replace("\t", "    "), Loader=yaml_BaseLoader)
@@ -122,10 +86,6 @@ def get_help_text(endpoint, lang:str=None, prefix:str=None) -> str:
 	if (extra := call_or_return(endpoint.help_extra, endpoint, lang)):
 		text += f'\n\n{extra}'
 	return text
-
-def strip_url_scheme(url:str) -> str:
-	tokens = urlparse.urlparse(url)
-	return f"{tokens.netloc}{tokens.path}"
 
 def parse_command_arguments(command, endpoint, count:int=None):
 	arguments = SafeNamespace()
@@ -244,6 +204,25 @@ def send_status_error(context:EventContext, lang:str=None, code:int=500, extra:s
 	app_log()
 	return result
 
+def get_link(context:EventContext, data:InputMessageData) -> InputMessageData:
+	data = (InputMessageData(**data) if type(data) == dict else data)
+	if (data.room and data.room.id):
+		data.room.id = data.room.id.removeprefix(f"{context.platform}:")
+	if data.message_id:
+		data.message_id = data.message_id.removeprefix(f"{context.platform}:")
+	if data.id:
+		data.id = data.id.removeprefix(f"{context.platform}:")
+	return Platforms[context.platform].linker(data)
+
+def get_message(context:EventContext, data:InputMessageData) -> InputMessageData:
+	data = (InputMessageData(**data) if type(data) == dict else data)
+	message = Platforms[context.platform].getter(context, data)
+	linked = get_link(context, data)
+	return ObjectUnion(message, {
+		"message_id": data.message_id,
+		"room": {"id": data.room.id, "url": linked.room},
+		"message_url": linked.message})
+
 def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool=False):
 	context = ObjectClone(context)
 	data = (OutputMessageData(**data) if type(data) == dict else data)
@@ -279,10 +258,14 @@ def edit_message(context:EventContext, data:MessageData):
 	...
 
 def delete_message(context:EventContext, data:MessageData):
-	...
+	data = (MessageData(**data) if type(data) == dict else data)
+	data.room.id = data.room.id.removeprefix(f"{context.platform}:")
+	data.message_id = data.message_id.removeprefix(f"{context.platform}:")
+	data.id = data.id.removeprefix(f"{context.platform}:")
+	return Platforms[context.platform].deleter(context, data)
 
-def register_platform(name:str, main:callable, sender:callable, linker:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
-	Platforms[name.lower()] = SafeNamespace(name=name, main=main, sender=sender, linker=linker, event_class=event_class, manager_class=manager_class, agent_info=agent_info)
+def register_platform(name:str, main:callable, sender:callable, getter:callable=None, linker:callable=None, deleter:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
+	Platforms[name.lower()] = SafeNamespace(name=name, main=main, getter=getter, linker=linker, sender=sender, deleter=deleter, event_class=event_class, manager_class=manager_class, agent_info=agent_info)
 	app_log(f"{name}, ", inline=True)
 
 def register_module(name:str, endpoints:dict, *, group:str|None=None) -> None:
@@ -324,7 +307,7 @@ def call_endpoint(context:EventContext, data:InputMessageData):
 
 def write_new_config() -> None:
 	app_log("💾️ No configuration found! Generating and writing to `./Data/Config.py`... ", inline=True)
-	with open("./Data/Config.py", 'w') as configFile:
+	with open("./Data/Config.py", 'w') as config_file:
 		opening = '# windog config start #'
 		closing = '# end windog config #'
 		for folder in ("LibWinDog", "ModWinDog"):
@@ -334,7 +317,7 @@ def write_new_config() -> None:
 					heading = f"# ==={'=' * len(name)}=== #"
 					source = open(file, 'r').read().replace(f"''' {opening}", f'""" {opening}').replace(f"{closing} '''", f'{closing} """')
 					content = '\n'.join(content.split(f'""" {opening}')[1].split(f'{closing} """')[0].split('\n')[1:-1])
-					configFile.write(f"{heading}\n# 🔽️ {name} 🔽️ #\n{heading}\n{content}\n\n")
+					config_file.write(f"{heading}\n# 🔽️ {name} 🔽️ #\n{heading}\n{content}\n\n")
 				except IndexError:
 					pass
 

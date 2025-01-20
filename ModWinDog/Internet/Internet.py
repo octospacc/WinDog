@@ -39,17 +39,20 @@ def cEmbedded(context:EventContext, data:InputMessageData):
 			url = '://'.join(url.split('://')[1:])
 			urlLow = '://'.join(urlLow.split('://')[1:])
 		urlDomain = urlLow.split('/')[0]
-		if urlDomain in ("facebook.com", "www.facebook.com", "m.facebook.com", "mbasic.facebook.com"):
-			url = "https://hlb0.octt.eu.org/cors-main.php/https://" + url
+		# if urlDomain in ("facebook.com", "www.facebook.com", "m.facebook.com", "mbasic.facebook.com"):
+		# 	url = "https://hlb0.octt.eu.org/cors-main.php/https://" + url
+		# 	proto = ''
+		# else:
+		# 	if urlDomain in ("instagram.com", "www.instagram.com"):
+		# 		urlDomain = "ddinstagram.com"
+		# 	elif urlDomain in ("twitter.com", "x.com"):
+		# 		urlDomain = "fxtwitter.com"
+		# 	elif urlDomain == "vm.tiktok.com":
+		# 		urlDomain = "vm.vxtiktok.com"
+		# 	url = (urlDomain + '/' + '/'.join(url.split('/')[1:]))
+		if urlDomain in ("facebook.com", "www.facebook.com", "m.facebook.com", "instagram.com", "www.instagram.com", "twitter.com", "x.com", "vm.tiktok.com", "tiktok.com", "www.tiktok.com"):
+			url = f"https://proxatore.octt.eu.org/{url}"
 			proto = ''
-		else:
-			if urlDomain in ("instagram.com", "www.instagram.com"):
-				urlDomain = "ddinstagram.com"
-			elif urlDomain in ("twitter.com", "x.com"):
-				urlDomain = "fxtwitter.com"
-			elif urlDomain == "vm.tiktok.com":
-				urlDomain = "vm.vxtiktok.com"
-			url = (urlDomain + '/' + '/'.join(url.split('/')[1:]))
 		return send_message(context, {"text_plain": f"{{{proto}{url}}}"})
 	return send_message(context, {"text_plain": "No links found."})
 
@@ -136,7 +139,7 @@ def cSafebooru(context:EventContext, data:InputMessageData):
 			return send_message(context, OutputMessageData(
 				text_plain=f"[{img_id}]\n{{{img_url}}}",
 				text_html=f"[<code>{img_id}</code>]\n<pre>{img_url}</pre>",
-				media={"url": img_url}))
+				media={"url": img_url, "type": "image/"}))
 		else:
 			return send_status_400(context, language)
 	except Exception:

@@ -7,9 +7,13 @@
 
 # TelegramToken = "1234567890:abcdefghijklmnopqrstuvwxyz123456789"
 
+# TelegramGetterChannel = -1001234567890
+# TelegramGetterGroup = -1001234567890
+
 # end windog config # """
 
 TelegramToken = None
+TelegramGetterChannel = TelegramGetterGroup = None
 
 import telegram, telegram.ext
 from telegram import Bot #, Update
@@ -33,6 +37,8 @@ def TelegramMain(path:str) -> bool:
 	return True
 
 def TelegramMakeUserData(user:telegram.User) -> UserData:
+	if not user:
+		return None
 	return UserData(
 		id = f"telegram:{user.id}",
 		tag = user.username,
@@ -42,11 +48,20 @@ def TelegramMakeUserData(user:telegram.User) -> UserData:
 def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 	#if not message:
 	#	return None
+	media = None
+	if (photo := (message.photo and message.photo[-1])):
+		media = {"url": photo.file_id, "type": "image/"}
+	elif (video_note := message.video_note):
+		media = {"url": video_note.file_id, "type": "video/"}
+	elif (media := (message.video or message.voice or message.audio or message.document or message.sticker)):
+		media = {"url": media.file_id, "type": media.mime_type}
 	data = InputMessageData(
+		id = f"telegram:{message.message_id}",
 		message_id = f"telegram:{message.message_id}",
 		datetime = int(time.mktime(message.date.timetuple())),
-		text_plain = message.text,
+		text_plain = (message.text or message.caption),
 		text_markdown = message.text_markdown_v2,
+		media = media,
 		user = TelegramMakeUserData(message.from_user),
 		room = SafeNamespace(
 			id = f"telegram:{message.chat.id}",
@@ -55,7 +70,8 @@ def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
 		),
 	)
 	data.command = TextCommandData(data.text_plain, "telegram")
-	data.user.settings = UserSettingsData(data.user.id)
+	if data.user:
+		data.user.settings = UserSettingsData(data.user.id)
 	linked = TelegramLinker(data)
 	data.message_url = linked.message
 	data.room.url = linked.room
@@ -72,6 +88,17 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 		call_endpoint(EventContext(platform="telegram", event=update, manager=context), data)
 	Thread(target=handler).start()
 
+def TelegramGetter(context:EventContext, data:InputMessageData) -> InputMessageData:
+	# bot API doesn't allow direct access of messages,
+	# so we ask the server to copy it to a service channel, so that the API returns its data, then delete the copy
+	message = TelegramMakeInputMessageData(
+		context.manager.bot.forward_message(
+			message_id=data.message_id,
+			from_chat_id=data.room.id,
+			chat_id=TelegramGetterChannel))
+	delete_message(context, message)
+	return message
+
 def TelegramSender(context:EventContext, data:OutputMessageData):
 	result = None
 	# TODO clean this
@@ -81,8 +108,11 @@ def TelegramSender(context:EventContext, data:OutputMessageData):
 		replyToId = (data.ReplyTo or context.event.message.message_id)
 		if data.media:
 			for medium in data.media:
-				result = context.event.message.reply_photo(
-					(obj_get(medium, "bytes") or obj_get(medium, "url")),
+				result = obj_get(context.event.message, (
+					"reply_photo" if medium.type.startswith("image/") else
+					"reply_video" if medium.type.startswith("video/") else
+				"reply_document"))(
+					(medium.bytes or medium.url),
 					caption=(data.text_html or data.text_markdown or data.text_plain),
 					parse_mode=("HTML" if data.text_html else "MarkdownV2" if data.text_markdown else None),
 					reply_to_message_id=replyToId)
@@ -94,24 +124,30 @@ def TelegramSender(context:EventContext, data:OutputMessageData):
 			result = context.event.message.reply_text(data.text_plain, reply_to_message_id=replyToId)
 	return TelegramMakeInputMessageData(result)
 
+def TelegramDeleter(context:EventContext, data:MessageData):
+	context.manager.bot.delete_message(chat_id=data.room.id, message_id=data.message_id)
+
 # TODO support usernames
+# TODO remove the platform stripping here (after modifying above functions here that use it), it's now implemented in get_link
 def TelegramLinker(data:InputMessageData) -> SafeNamespace:
 	linked = SafeNamespace()
 	if (room_id := data.room.id):
 		# prefix must be dropped for groups and channels, while direct chats apparently can never be linked
-		if (room_id := "100".join(room_id.split("telegram:")[1].split("100")[1:])):
+		if (room_id := "100".join(room_id.removeprefix("telegram:").split("100")[1:])):
 			# apparently Telegram doesn't really support links to rooms by id without a message id, so we just use a null one
 			linked.room = f"https://t.me/c/{room_id}/0"
 			if data.message_id:
-				message_id = data.message_id.split("telegram:")[1]
+				message_id = data.message_id.removeprefix("telegram:")
 				linked.message = f"https://t.me/c/{room_id}/{message_id}"
 	return linked
 
 register_platform(
 	name="Telegram",
 	main=TelegramMain,
-	sender=TelegramSender,
+	getter=TelegramGetter,
 	linker=TelegramLinker,
+	sender=TelegramSender,
+	deleter=TelegramDeleter,
 	event_class=telegram.Update,
 	manager_class=(lambda:TelegramClient),
 	agent_info=(lambda:TelegramMakeUserData(TelegramClient.bot.get_me())),

@@ -12,7 +12,7 @@ def cFilters(context:EventContext, data:InputMessageData):
 	# * (output)  setscript              <..., script> 
 	# * (output)  insert, remove         <..., groupid, message>
 	#arguments = data.command.parse_arguments(4)
-	if not (action := data.command.arguments.action) or (action not in ["list", "create", "delete"]):
+	if not (action := data.command.arguments.action) or (action not in ["list", "create", "delete", "insert", "remove"]):
 		return send_status_400(context, language)
 	[room_id, filter_id, command_data] = ((None,) * 3)
 	for token in data.command.tokens[2:]:
@@ -40,6 +40,8 @@ def cFilters(context:EventContext, data:InputMessageData):
 			# TODO error message on name constraint violation
 			# TODO filter name validation (no spaces or special symbols, no only numbers)
 			if filter_id and (len(Filter.select().where((Filter.owner == room_id) & (Filter.name == filter_id)).tuples()) > 0):
+				return
+			elif filter_id.isnumeric() or ''.join([c if c not in "abcdefghijklmnopqrstuvwxyz0123456789" else "" for c in filter_id.lower()]):
 				return
 			else:
 				filter_id = Filter.create(name=filter_id, owner=room_id)

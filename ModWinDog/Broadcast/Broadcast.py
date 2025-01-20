@@ -5,7 +5,7 @@
 
 def cBroadcast(context:EventContext, data:InputMessageData):
 	language = data.user.settings.language
-	if (data.user.id not in AdminIds) and (data.user.tag not in AdminIds):
+	if not check_bot_admin(data.user):
 		return send_status(context, 403, language)
 	destination = data.command.arguments.destination
 	text = (data.command.body or (data.quoted and data.quoted.text_plain))
