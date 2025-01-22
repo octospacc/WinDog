@@ -56,7 +56,7 @@ def MatrixMain(path:str) -> bool:
 def MatrixMakeInputMessageData(room:nio.MatrixRoom, event:nio.RoomMessage) -> InputMessageData:
 	data = InputMessageData(
 		message_id = f"matrix:{event.event_id}",
-		datetime = event.server_timestamp,
+		timestamp = event.server_timestamp,
 		text_plain = event.body,
 		text_html = obj_get(event, "formatted_body"), # this could be unavailable
 		media = ({"url": event.url} if obj_get(event, "url") else None),

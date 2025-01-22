@@ -16,11 +16,14 @@ TelegramToken = None
 TelegramGetterChannel = TelegramGetterGroup = None
 
 import telegram, telegram.ext
-from telegram import Bot #, Update
+#from telegram import Bot #, Update
 #from telegram.helpers import escape_markdown
 #from telegram.ext import Application, filters, CommandHandler, MessageHandler, CallbackContext
 from telegram.utils.helpers import escape_markdown
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
+from base64 import urlsafe_b64encode
+from hashlib import sha256
+from hmac import new as hmac_new
 
 TelegramClient = None
 
@@ -45,20 +48,25 @@ def TelegramMakeUserData(user:telegram.User) -> UserData:
 		name = user.first_name,
 	)
 
-def TelegramMakeInputMessageData(message:telegram.Message) -> InputMessageData:
+def TelegramMakeInputMessageData(message:telegram.Message, access_token:str=None) -> InputMessageData:
 	#if not message:
 	#	return None
+	timestamp = int(time.mktime(message.date.timetuple()))
 	media = None
 	if (photo := (message.photo and message.photo[-1])):
-		media = {"url": photo.file_id, "type": "image/"}
+		media = {"url": photo.file_id, "type": "image/jpeg"}
 	elif (video_note := message.video_note):
-		media = {"url": video_note.file_id, "type": "video/"}
+		media = {"url": video_note.file_id, "type": "video/mp4"}
 	elif (media := (message.video or message.voice or message.audio or message.document or message.sticker)):
-		media = {"url": media.file_id, "type": media.mime_type}
+		media = {"url": media.file_id, "type": obj_get(media, "mime_type")}
+	if (file_id := obj_get(media, "url")):
+		media["url"] = f"telegram:{file_id}"
+		if access_token:
+			media["token"] = get_media_token_hash(media["url"], timestamp, access_token)
 	data = InputMessageData(
 		id = f"telegram:{message.message_id}",
 		message_id = f"telegram:{message.message_id}",
-		datetime = int(time.mktime(message.date.timetuple())),
+		timestamp = timestamp,
 		text_plain = (message.text or message.caption),
 		text_markdown = message.text_markdown_v2,
 		media = media,
@@ -88,14 +96,14 @@ def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> Non
 		call_endpoint(EventContext(platform="telegram", event=update, manager=context), data)
 	Thread(target=handler).start()
 
-def TelegramGetter(context:EventContext, data:InputMessageData) -> InputMessageData:
+def TelegramGetter(context:EventContext, data:InputMessageData, access_token:str=None) -> InputMessageData:
 	# bot API doesn't allow direct access of messages,
 	# so we ask the server to copy it to a service channel, so that the API returns its data, then delete the copy
 	message = TelegramMakeInputMessageData(
 		context.manager.bot.forward_message(
 			message_id=data.message_id,
 			from_chat_id=data.room.id,
-			chat_id=TelegramGetterChannel))
+			chat_id=TelegramGetterChannel), access_token)
 	delete_message(context, message)
 	return message
 
@@ -112,7 +120,7 @@ def TelegramSender(context:EventContext, data:OutputMessageData):
 					"reply_photo" if medium.type.startswith("image/") else
 					"reply_video" if medium.type.startswith("video/") else
 				"reply_document"))(
-					(medium.bytes or medium.url),
+					(medium.bytes or medium.url.removeprefix("telegram:")),
 					caption=(data.text_html or data.text_markdown or data.text_plain),
 					parse_mode=("HTML" if data.text_html else "MarkdownV2" if data.text_markdown else None),
 					reply_to_message_id=replyToId)
@@ -125,7 +133,15 @@ def TelegramSender(context:EventContext, data:OutputMessageData):
 	return TelegramMakeInputMessageData(result)
 
 def TelegramDeleter(context:EventContext, data:MessageData):
-	context.manager.bot.delete_message(chat_id=data.room.id, message_id=data.message_id)
+	return context.manager.bot.delete_message(chat_id=data.room.id, message_id=data.message_id)
+
+def TelegramFileGetter(context:EventContext, file_id:str, out=None):
+	try:
+		file = context.manager.bot.get_file(file_id)
+		return (lambda: file.download(out=out)) if out else file.download_as_bytearray()
+		#return file.download(out=out) if out else file.download_as_bytearray()
+	except Exception:
+		return None
 
 # TODO support usernames
 # TODO remove the platform stripping here (after modifying above functions here that use it), it's now implemented in get_link
@@ -148,6 +164,7 @@ register_platform(
 	linker=TelegramLinker,
 	sender=TelegramSender,
 	deleter=TelegramDeleter,
+	filegetter=TelegramFileGetter,
 	event_class=telegram.Update,
 	manager_class=(lambda:TelegramClient),
 	agent_info=(lambda:TelegramMakeUserData(TelegramClient.bot.get_me())),

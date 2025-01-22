@@ -220,7 +220,7 @@ def send_status_error(context:EventContext, lang:str=None, code:int=500, extra:s
 	app_log()
 	return result
 
-def get_link(context:EventContext, data:InputMessageData) -> InputMessageData:
+def get_link(context:EventContext, data:InputMessageData):
 	data = (InputMessageData(**data) if type(data) == dict else data)
 	if (data.room and data.room.id):
 		data.room.id = data.room.id.removeprefix(f"{context.platform}:")
@@ -230,9 +230,28 @@ def get_link(context:EventContext, data:InputMessageData) -> InputMessageData:
 		data.id = data.id.removeprefix(f"{context.platform}:")
 	return Platforms[context.platform].linker(data)
 
-def get_message(context:EventContext, data:InputMessageData) -> InputMessageData:
+def get_media_token_hash(url:str, timestamp:int, access_token:str):
+	return urlsafe_b64encode(hmac_new(access_token.encode(), f"{url}:{timestamp}".encode(), sha256).digest()).decode()
+
+def get_media_link(url:str, type:str=None, timestamp:int=None, access_token:str=None):
+	urllow = url.lower()
+	if not (urllow.startswith('http') or urllow.startswith('https') or urllow.startswith('/')):
+		if not (timestamp and access_token):
+			return None
+		url = WebConfig["url"] + f"/api/v1/FileProxy/?url={url}&type={type or ''}&timestamp={timestamp}&token={get_media_token_hash(url, timestamp, access_token)}"
+	return url
+
+def get_message(context:EventContext, data:InputMessageData, access_token:str=None) -> InputMessageData:
 	data = (InputMessageData(**data) if type(data) == dict else data)
-	message = Platforms[context.platform].getter(context, data)
+	tokens = data.room.id.split(':')
+	if tokens[0] != context.platform:
+		context.platform = tokens[0]
+		context.manager = context.event = None
+	data.room.id = ':'.join(tokens[1:])
+	platform = Platforms[context.platform]
+	if (not context.manager) and (manager := platform.manager_class):
+		context.manager = call_or_return(manager)
+	message = platform.getter(context, data, access_token)
 	linked = get_link(context, data)
 	return ObjectUnion(message, {
 		"message_id": data.message_id,
@@ -259,6 +278,7 @@ def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool
 	if data.ReplyTo: # TODO decide if this has to be this way
 		data.ReplyTo = ':'.join(data.ReplyTo.split(':')[1:])
 	if context.platform not in Platforms:
+		# platform has no handler, so instead of doing a send action just return data to caller
 		return ObjectUnion(data, {"status": status})
 	platform = Platforms[context.platform]
 	if (not context.manager) and (manager := platform.manager_class):
@@ -280,8 +300,18 @@ def delete_message(context:EventContext, data:MessageData):
 	data.id = data.id.removeprefix(f"{context.platform}:")
 	return Platforms[context.platform].deleter(context, data)
 
-def register_platform(name:str, main:callable, sender:callable, getter:callable=None, linker:callable=None, deleter:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
-	Platforms[name.lower()] = SafeNamespace(name=name, main=main, getter=getter, linker=linker, sender=sender, deleter=deleter, event_class=event_class, manager_class=manager_class, agent_info=agent_info)
+def get_file(context:EventContext, url:str, out=None):
+	tokens = url.split(':')
+	if tokens[0] != context.platform:
+		context.platform = tokens[0]
+		context.manager = context.event = None
+	platform = Platforms[context.platform]
+	if (not context.manager) and (manager := platform.manager_class):
+		context.manager = call_or_return(manager)
+	return platform.filegetter(context, ':'.join(tokens[1:]), out)
+
+def register_platform(name:str, main:callable, getter:callable=None, linker:callable=None, sender:callable=None, deleter:callable=None, filegetter:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
+	Platforms[name.lower()] = SafeNamespace(name=name, main=main, getter=getter, linker=linker, sender=sender, deleter=deleter, filegetter=filegetter, event_class=event_class, manager_class=manager_class, agent_info=agent_info)
 	app_log(f"{name}, ", inline=True)
 
 def register_module(name:str, endpoints:dict, *, group:str|None=None) -> None:

@@ -16,6 +16,9 @@ WebTokens = {}
 """ # end windog config # """
 
 import queue
+from base64 import urlsafe_b64encode
+from hashlib import sha256
+from hmac import new as hmac_new
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from uuid6 import uuid7
@@ -34,11 +37,11 @@ web_html_prefix = (lambda document_class='', head_extra='': (f'''<!DOCTYPE html>
 
 class WebServerClass(BaseHTTPRequestHandler):
 	def parse_path(self):
-		path = self.path.strip('/').lower()
+		path = self.path.strip('/')
 		try:
 			query = path.split('?')[1]
 			params = dict(parse_qsl(query))
-			query = query.split('&')
+			query = query.lower().split('&')
 		except Exception:
 			query = []
 			params = {}
@@ -123,6 +126,7 @@ class WebServerClass(BaseHTTPRequestHandler):
 			self.init_new_room()
 		elif path == "favicon.ico":
 			self.send_response(404)
+			self.end_headers()
 		elif path == "windog.css":
 			self.send_text_content(web_css_style, "text/css")
 		#elif path == "on-connection-dropped.css":
@@ -155,6 +159,45 @@ class WebServerClass(BaseHTTPRequestHandler):
 		elif fields[:2] == ["api", "v1"]:
 			self.handle_api("POST", fields[2:], params)
 
+	def handle_api(self, verb:str, fields:list, params:dict):
+		result = None
+		if (access_token := self.headers["Authorization"]):
+			access_token = ' '.join(access_token.split(' ')[1:]) if access_token.startswith("Bearer ") else None
+		else:
+			access_token = obj_get(params, "authorization")
+		fields.append('')
+		match fields[0]:
+			case "Call" if (text := obj_get(params, "text")) or (endpoint := obj_get(params, "endpoint")):
+				result = call_endpoint(EventContext(), InputMessageData(
+					command = TextCommandData(text) if text else SafeNamespace(
+						name = endpoint,
+						arguments = self.parse_command_arguments_web(params),
+						body = obj_get(params, "body"),
+						tokens = [],
+					),
+					user = UserData(
+						settings = UserSettingsData(),
+					),
+				))
+			case "GetMessage" if (auth := self.check_web_auth(access_token)) and (message_id := obj_get(params, "message_id")) and (room_id := obj_get(params, "room_id")):
+				if (type(auth) == bool) or ((type(auth) == list) and (room_id in auth)):
+					result = get_message(EventContext(), {"message_id": message_id, "room": {"id": room_id}}, access_token)
+			#case "sendmessage":
+			#case "endpoints":
+			case "FileProxy" if (url := obj_get(params, "url")) and (timestamp := obj_get(params, "timestamp")) and (token := obj_get(params, "token")):
+				if self.validate_file_token(url, timestamp, token) and (passtrough := get_file(EventContext(), url, self.wfile)):
+					self.send_response(200)
+					if (filetype := obj_get(params, "type")):
+						self.send_header("Content-Type", filetype)
+					self.end_headers()
+					passtrough()
+					return
+		if result:
+			self.send_text_content(data_to_json(result), "application/json")
+		else:
+			self.send_response(404)
+			self.end_headers()
+
 	def parse_command_arguments_web(self, params:dict):
 		args = SafeNamespace()
 		for key in params:
@@ -162,28 +205,16 @@ class WebServerClass(BaseHTTPRequestHandler):
 				args[key[1:]] = params[key]
 		return args
 
-	def handle_api(self, verb:str, fields:list, params:dict):
-		fields.append('')
-		match (method := fields[0].lower()):
-			case "call" if (text := obj_get(params, "text")) or (endpoint := obj_get(params, "endpoint")):
-				result = call_endpoint(EventContext(), InputMessageData(
-					command = TextCommandData(text) if text else SafeNamespace(
-						name = endpoint,
-						arguments = self.parse_command_arguments_web(params),
-						body = obj_get(params, 'body')
-					),
-					user = UserData(
-						settings = UserSettingsData(),
-					),
-				))
-				if result:
-					self.send_text_content(data_to_json(result), "application/json")
-					return
-			#case "getmessage":
-			#case "sendmessage":
-			#case "endpoints":
-		self.send_response(404)
-		self.end_headers()
+	def check_web_auth(self, token:str):
+		if token and (identity := obj_get(WebTokens, token)):
+			return True if (identity["owners"] == AdminIds) else identity["room_whitelist"]
+		return False
+
+	def validate_file_token(self, url:str, timestamp:int, file_token:str):
+		for token in WebTokens:
+			if urlsafe_b64encode(hmac_new(token.encode(), f"{url}:{timestamp}".encode(), sha256).digest()).decode() == file_token:
+				return True
+		return False
 
 def WebPushEvent(room_id:str, user_id:str, text:str, headers:dict[str:str]):
 	context = EventContext(platform="web", event=SafeNamespace(room_id=room_id, user_id=user_id))
