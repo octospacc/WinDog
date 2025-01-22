@@ -3,18 +3,7 @@
 #  Licensed under AGPLv3 by OctoSpacc  #
 # ==================================== #
 
-from json import dumps as json_dumps, loads as json_loads
-
-def dict_filter_meta(dikt:dict):
-	remove = []
-	for key in dikt:
-		if key.startswith('_'):
-			remove.append(key)
-		elif type(obj := dikt[key]) == dict:
-			dikt[key] = dict_filter_meta(obj)
-	for key in remove:
-		dikt.pop(key)
-	return dikt
+from json import dumps as json_dumps
 
 # TODO: assume current room when none specified
 def get_message_wrapper(context:EventContext, data:InputMessageData):
@@ -25,8 +14,7 @@ def get_message_wrapper(context:EventContext, data:InputMessageData):
 def cDump(context:EventContext, data:InputMessageData):
 	if not (message := (data.quoted or get_message_wrapper(context, data))):
 		return send_status_400(context, data.user.settings.language)
-	data = dict_filter_meta(json_loads(json_dumps(message, default=(lambda obj: (obj.__dict__ if not callable(obj) else None)))))
-	text = json_dumps(data, indent="  ")
+	text = data_to_json(message, indent="  ")
 	return send_message(context, {"text_html": f'<pre>{html_escape(text)}</pre>'})
 
 def cGetMessage(context:EventContext, data:InputMessageData):

@@ -11,12 +11,16 @@ WebConfig = {
 	"anti_drop_interval": 15,
 }
 
+WebTokens = {}
+
 """ # end windog config # """
 
 import queue
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from threading import Thread
 from uuid6 import uuid7
+#from secrets import token_urlsafe
+from urllib.parse import parse_qsl
 
 WebQueues = {}
 web_css_style = web_js_script = None
@@ -25,18 +29,21 @@ web_html_prefix = (lambda document_class='', head_extra='': (f'''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>WinDog 🐶️</title>
 <link rel="stylesheet" href="/windog.css"/>
-<script src="/windog.js">''' + '' + f'''</script>
+<script src="/windog.js"></script>
 {head_extra}</head><body>'''))
 
 class WebServerClass(BaseHTTPRequestHandler):
 	def parse_path(self):
 		path = self.path.strip('/').lower()
 		try:
-			query = path.split('?')[1].split('&')
+			query = path.split('?')[1]
+			params = dict(parse_qsl(query))
+			query = query.split('&')
 		except Exception:
 			query = []
+			params = {}
 		path = path.split('?')[0]
-		return (path, path.split('/'), query)
+		return (path, path.split('/'), query, params)
 
 	def do_redirect(self, path:str):
 		self.send_response(302)
@@ -111,17 +118,19 @@ class WebServerClass(BaseHTTPRequestHandler):
 
 	def do_GET(self):
 		room_id = user_id = None
-		path, fields, query = self.parse_path()
+		path, fields, query, params = self.parse_path()
 		if not path:
 			self.init_new_room()
+		elif path == "favicon.ico":
+			self.send_response(404)
 		elif path == "windog.css":
 			self.send_text_content(web_css_style, "text/css")
 		#elif path == "on-connection-dropped.css":
 		#	self.send_text_content('.on-connection-dropped { display: revert; } form { display: none; }', "text/css", infinite=True)
 		elif path == "windog.js":
 			self.send_text_content(web_js_script, "application/javascript")
-		elif fields[0] == "api":
-			... # TODO rest API
+		elif fields[:2] == ["api", "v1"]:
+			self.handle_api("GET", fields[2:], params)
 		elif fields[0] == "form":
 			self.send_form_html(*fields[1:3])
 		else:
@@ -138,11 +147,43 @@ class WebServerClass(BaseHTTPRequestHandler):
 				self.send_text_content(f'''{web_html_prefix("wrapper no-margin")}<iframe src="/{room_id}/{uuid7().hex}#load-target"></iframe>''', "text/html")
 
 	def do_POST(self):
-		path, fields, query = self.parse_path()
+		path, fields, query, params = self.parse_path()
 		if path and fields[0] == 'form':
 			room_id, user_id = fields[1:3]
 			self.send_form_html(room_id, user_id)
 			WebPushEvent(room_id, user_id, urlparse.unquote_plus(self.rfile.read(int(self.headers["Content-Length"])).decode().split('=')[1]), self.headers)
+		elif fields[:2] == ["api", "v1"]:
+			self.handle_api("POST", fields[2:], params)
+
+	def parse_command_arguments_web(self, params:dict):
+		args = SafeNamespace()
+		for key in params:
+			if key.startswith('_'):
+				args[key[1:]] = params[key]
+		return args
+
+	def handle_api(self, verb:str, fields:list, params:dict):
+		fields.append('')
+		match (method := fields[0].lower()):
+			case "call" if (text := obj_get(params, "text")) or (endpoint := obj_get(params, "endpoint")):
+				result = call_endpoint(EventContext(), InputMessageData(
+					command = TextCommandData(text) if text else SafeNamespace(
+						name = endpoint,
+						arguments = self.parse_command_arguments_web(params),
+						body = obj_get(params, 'body')
+					),
+					user = UserData(
+						settings = UserSettingsData(),
+					),
+				))
+				if result:
+					self.send_text_content(data_to_json(result), "application/json")
+					return
+			#case "getmessage":
+			#case "sendmessage":
+			#case "endpoints":
+		self.send_response(404)
+		self.end_headers()
 
 def WebPushEvent(room_id:str, user_id:str, text:str, headers:dict[str:str]):
 	context = EventContext(platform="web", event=SafeNamespace(room_id=room_id, user_id=user_id))

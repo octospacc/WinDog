@@ -44,6 +44,22 @@ def get_exception_text(full:bool=False):
 def good_yaml_load(text:str):
 	return yaml_load(text.replace("\t", "    "), Loader=yaml_BaseLoader)
 
+def data_to_dict(data:object):
+	def dict_filter_meta(dikt:dict):
+		remove = []
+		for key in dikt:
+			if key.startswith('_'):
+				remove.append(key)
+			elif type(obj := dikt[key]) == dict:
+				dikt[key] = dict_filter_meta(obj)
+		for key in remove:
+			dikt.pop(key)
+		return dikt
+	return dict_filter_meta(json.loads(json.dumps(data, default=(lambda obj: (obj.__dict__ if not callable(obj) else None)))))
+
+def data_to_json(data:object, **jsonargs):
+	return json.dumps(data_to_dict(data), **jsonargs)
+
 def get_string(bank:dict, query:str, lang:str=None) -> str|list[str]|None:
 	if type(result := obj_get(bank, query)) != str:
 		if not (result := obj_get(bank, f"{query}.{lang or DefaultLanguage}")):
@@ -103,7 +119,7 @@ def parse_command_arguments(command, endpoint, count:int=None):
 		index += 1
 	return [arguments, body]
 
-def TextCommandData(text:str, platform:str) -> CommandData|None:
+def TextCommandData(text:str, platform:str=None) -> CommandData|None:
 	if not text:
 		return None
 	text = text.strip()
@@ -116,7 +132,7 @@ def TextCommandData(text:str, platform:str) -> CommandData|None:
 	command.tokens = text.split()
 	command.prefix = command.tokens[0][0]
 	command.name, command_target = (command.tokens[0][1:].lower().split('@') + [''])[:2]
-	if command_target and not (command_target == call_or_return(Platforms[platform].agent_info).tag.lower()):
+	if command_target and platform and not (command_target == call_or_return(Platforms[platform].agent_info).tag.lower()):
 		return None
 	command.body = text[len(command.tokens[0]):].strip()
 	if not (endpoint := obj_get(Endpoints, command.name)):
@@ -192,7 +208,7 @@ def send_status(context:EventContext, code:int, lang:str=None, extra:str=None, p
 	return send_message(context, {"text_html": (
 		(((f'{global_string(f"statuses.{code}.icon")} {global_string("error") if code >= 400 else ""}'.strip()
 			+ f' {code}: {global_string(f"statuses.{code}.title")}. {summary_text if summary else ""}').strip()) if preamble else '')
-				+ '\n\n' + (extra or "")).strip()})
+				+ '\n\n' + (extra or "")).strip()}, status=code)
 
 def send_status_400(context:EventContext, lang:str=None, extra:str=None):
 	return send_status(context, 400, lang,
@@ -223,7 +239,7 @@ def get_message(context:EventContext, data:InputMessageData) -> InputMessageData
 		"room": {"id": data.room.id, "url": linked.room},
 		"message_url": linked.message})
 
-def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool=False):
+def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool=False, status:int=200):
 	context = ObjectClone(context)
 	data = (OutputMessageData(**data) if type(data) == dict else data)
 	if data.text_html and not data.text_plain:
@@ -243,7 +259,7 @@ def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool
 	if data.ReplyTo: # TODO decide if this has to be this way
 		data.ReplyTo = ':'.join(data.ReplyTo.split(':')[1:])
 	if context.platform not in Platforms:
-		return None
+		return ObjectUnion(data, {"status": status})
 	platform = Platforms[context.platform]
 	if (not context.manager) and (manager := platform.manager_class):
 		context.manager = call_or_return(manager)
@@ -301,7 +317,7 @@ def call_endpoint(context:EventContext, data:InputMessageData):
 	context.data = data
 	context.module = endpoint.module
 	context.endpoint = endpoint
-	if callable(agent_info := Platforms[context.platform].agent_info):
+	if context.platform and callable(agent_info := Platforms[context.platform].agent_info):
 		Platforms[context.platform].agent_info = agent_info()
 	return endpoint.handler(context, data)
 
