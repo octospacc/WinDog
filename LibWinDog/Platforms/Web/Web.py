@@ -11,7 +11,7 @@ WebConfig = {
 	"anti_drop_interval": 15,
 }
 
-WebTokens = {}
+WebTokens = {} # Generate new tokens with secrets.token_urlsafe()
 
 """ # end windog config # """
 

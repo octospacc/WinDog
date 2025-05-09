@@ -12,6 +12,7 @@ MicrosoftBingSettings = {}
 from urlextract import URLExtract
 from urllib import parse as urlparse
 from urllib.request import urlopen, Request
+from translate_shell.translate import translate as ts_translate
 
 def RandomHexString(length:int) -> str:
 	return ''.join([randchoice('0123456789abcdef') for i in range(length)])
@@ -50,32 +51,71 @@ def cEmbedded(context:EventContext, data:InputMessageData):
 		# 	elif urlDomain == "vm.tiktok.com":
 		# 		urlDomain = "vm.vxtiktok.com"
 		# 	url = (urlDomain + '/' + '/'.join(url.split('/')[1:]))
-		if urlDomain in ("facebook.com", "www.facebook.com", "m.facebook.com", "instagram.com", "www.instagram.com", "twitter.com", "x.com", "vm.tiktok.com", "tiktok.com", "www.tiktok.com"):
+		if urlDomain.startswith("www."):
+			urlDomain = '.'.join(urlDomain.split('.')[1:])
+		if urlDomain in ("facebook.com", "m.facebook.com", "instagram.com", "twitter.com", "x.com", "vm.tiktok.com", "tiktok.com", "threads.net", "threads.com"):
 			url = f"https://proxatore.octt.eu.org/{url}"
+			proto = ''
+		elif urlDomain in ("youtube.com",):
+			url = f"https://proxatore.octt.eu.org/{url}{'' if url.endswith('?') else '?'}&proxatore-htmlmedia=true&proxatore-mediaproxy=video"
 			proto = ''
 		return send_message(context, {"text_plain": f"{{{proto}{url}}}"})
 	return send_message(context, {"text_plain": "No links found."})
+
+def search_duckduckgo(query:str) -> dict:
+	url = f"https://html.duckduckgo.com/html?q={urlparse.quote(query)}"
+	request = HttpReq(url)
+	results = []
+	for line in request.read().decode().replace('\t', ' ').splitlines():
+		if ' class="result__a" ' in line and ' href="//duckduckgo.com/l/?uddg=' in line:
+			link = urlparse.unquote(line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
+			title = line.strip().split('</a>')[0].strip().split('</span>')[-1].strip().split('>')
+			if len(title) > 1:
+				results.append({"title": html_unescape(title[1].strip()), "link": link})
+	return results
+
+def format_search_result(link:str, title:str, index:int) -> str:
+	return f'[{index + 1}] {title} : {{{link}}}\n\n'
 
 def cWeb(context:EventContext, data:InputMessageData):
 	language = data.user.settings.language
 	if not (query := data.command.body):
 		return send_status_400(context, language)
 	try:
+		text = f'🦆🔎 "{query}": https://duckduckgo.com/?q={urlparse.quote(query)}\n\n'
+		for i,e in enumerate(search_duckduckgo(query)):
+			text += format_search_result(e["link"], e["title"], i)
+		return send_message(context, {"text_plain": trim_text(text, 4096, True), "text_mode": "trim"})
+	except Exception:
+		return send_status_error(context, language)
+
+def cWikipedia(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
+	if not (query := data.command.body):
+		return send_status_400(context, language)
+	try:
+		result = search_duckduckgo(f"site:wikipedia.org {query}")[0]
+		# TODO try to use API: https://*.wikipedia.org/w/api.php?action=parse&page={title}&prop=text&formatversion=2 (?)
+		soup = BeautifulSoup(HttpReq(result["link"]).read().decode(), "html.parser").select('#mw-content-text')[0]
+		if len(elems := soup.select('.infobox')):
+			elems[0].decompose()
+		for elem in soup.select('.mw-editsection'):
+			elem.decompose()
+		text = (f'{result["title"]}\n{{{result["link"]}}}\n\n' + soup.get_text().strip())
+		return send_message(context, {"text_plain": trim_text(text, 4096, True), "text_mode": "trim"})
+	except Exception:
+		return send_status_error(context, language)
+
+def cFrittoMistoOctoSpacc(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
+	if not (query := data.command.body):
+		return send_status_400(context, language)
+	try:
 		query_url = urlparse.quote(query)
-		request = HttpReq(f'https://html.duckduckgo.com/html?q={query_url}')
-		caption = f'🦆🔎 "{query}": https://duckduckgo.com/?q={query_url}\n\n'
-		index = 0
-		for line in request.read().decode().replace('\t', ' ').splitlines():
-			if ' class="result__a" ' in line and ' href="//duckduckgo.com/l/?uddg=' in line:
-				index += 1
-				link = urlparse.unquote(line.split(' href="//duckduckgo.com/l/?uddg=')[1].split('&amp;rut=')[0])
-				title = line.strip().split('</a>')[0].strip().split('</span>')[-1].strip().split('>')
-				if len(title) > 1:
-					title = html_unescape(title[1].strip())
-					caption += f'[{index}] {title} : {{{link}}}\n\n'
-				else:
-					continue
-		return send_message(context, {"text_plain": f'{caption}...'})
+		text = f'🍤🔎 "{query}": https://octospacc.altervista.org/?s={query_url}\n\n'
+		for i,e in enumerate(json.loads(HttpReq(f"https://octospacc.altervista.org/wp-json/wp/v2/posts?search={query_url}").read().decode())):
+			text += format_search_result(e["link"], (e["title"]["rendered"] or e["slug"]), i)
+		return send_message(context, {"text_html": trim_text(text, 4096, True), "text_mode": "trim"})
 	except Exception:
 		return send_status_error(context, language)
 
@@ -87,14 +127,15 @@ def cNews(context:EventContext, data:InputMessageData):
 
 def cTranslate(context:EventContext, data:InputMessageData):
 	language = data.user.settings.language
-	instances = ["lingva.ml", "lingva.lunar.icu"]
+	#instances = ["lingva.ml", "lingva.lunar.icu"]
 	language_to = data.command.arguments.language_to
 	text_input = (data.command.body or (data.quoted and data.quoted.text_plain))
 	if not (text_input and language_to):
 		return send_status_400(context, language)
 	try:
-		result = json.loads(HttpReq(f'https://{randchoice(instances)}/api/v1/auto/{language_to}/{urlparse.quote(text_input)}').read())
-		return send_message(context, {"text_plain": f"[{result['info']['detectedSource']} (auto) -> {language_to}]\n\n{result['translation']}"})
+		#result = json.loads(HttpReq(f'https://{randchoice(instances)}/api/v1/auto/{language_to}/{urlparse.quote(text_input)}').read())
+		#return send_message(context, {"text_plain": f"[{result['info']['detectedSource']} (auto) -> {language_to}]\n\n{result['translation']}"})
+		return send_message(context, {"text_plain": f'[auto -> {language_to}]\n\n{ts_translate(text_input, language_to).results[0].paraphrase}'})
 	except Exception:
 		return send_status_error(context, language)
 
@@ -146,8 +187,10 @@ def cSafebooru(context:EventContext, data:InputMessageData):
 		return send_status_error(context, language)
 
 register_module(name="Internet", endpoints=[
-	SafeNamespace(names=["embedded"], handler=cEmbedded, body=False, quoted=False),
-	SafeNamespace(names=["web"], handler=cWeb, body=True),
+	SafeNamespace(names=["embedded", "embed", "proxy", "proxatore", "sborratore"], handler=cEmbedded, body=False, quoted=False),
+	SafeNamespace(names=["web", "search", "duck", "duckduckgo"], handler=cWeb, body=True),
+	SafeNamespace(names=["wikipedia", "wokipedia", "wiki"], handler=cWikipedia, body=True),
+	SafeNamespace(names=["frittomistodioctospacc", "fmos", "frittomisto", "octospacc"], handler=cFrittoMistoOctoSpacc, body=True),
 	SafeNamespace(names=["translate"], handler=cTranslate, body=False, quoted=False, arguments={
 		"language_to": True,
 		"language_from": False,

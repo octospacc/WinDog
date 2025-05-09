@@ -27,6 +27,12 @@ from hmac import new as hmac_new
 
 TelegramClient = None
 
+# def telegram_trim_message(text:str) -> str:
+# 	return trim_message(text, 4096)
+
+# def telegram_trim_caption(text:str) -> str:
+# 	return trim_message(text, 1024)
+
 def TelegramMain(path:str) -> bool:
 	if not TelegramToken:
 		return False

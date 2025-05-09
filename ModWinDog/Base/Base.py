@@ -42,7 +42,8 @@ def cPing(context:EventContext, data:InputMessageData):
 	# nice experiment, but it won't work with Telegram since time is not to milliseconds (?)
 	#time_diff = (time_now := int(time.time())) - (time_sent := data.datetime)
 	#send_message(context, OutputMessageData(text_html=f"<b>Pong!</b>\n\n{time_sent} → {time_now} = {time_diff}"))
-	send_message(context, OutputMessageData(text_html="<b>Pong!</b>"))
+	word = (obj_get({"dick": "cock"}, data.command.name) or data.command.name.replace('i', 'o'))
+	send_message(context, OutputMessageData(text_html=f"<b>{word[0].upper()}{word[1:]}!</b>"))
 
 #def cTime(update:Update, context:CallbackContext) -> None:
 #	update.message.reply_markdown_v2(
@@ -58,7 +59,7 @@ register_module(name="Base", endpoints=[
 		"get": True,
 	}),
 	#SafeNamespace(names=["gdpr"], summary="Operations for european citizens regarding your personal data.", handler=cGdpr),
-	SafeNamespace(names=["ping"], handler=cPing),
+	SafeNamespace(names=["ping", "bing", "ding", "dick"], handler=cPing),
 	#SafeNamespace(names=["eval"], summary="Execute a Python command (or safe literal operation) in the current context. Currently not implemented.", handler=cEval),
 	#SafeNamespace(names=["format"], summary="Reformat text using an handful of rules. Not yet implemented.", handler=cFormat),
 	#SafeNamespace(names=["frame"], summary="Frame someone's message into a platform-styled image. Not yet implemented.", handler=cFrame),

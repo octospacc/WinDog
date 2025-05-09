@@ -23,7 +23,7 @@ from LibWinDog.Database import *
 from LibWinDog.Utils import *
 
 def app_log(text:str=None, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
-	if not text:
+	if text == None:
 		text = get_exception_text(full=True)
 	endline = '\n'
 	if newline == False or (inline and newline == None):
@@ -220,6 +220,15 @@ def send_status_error(context:EventContext, lang:str=None, code:int=500, extra:s
 	app_log()
 	return result
 
+def trim_text(text:str, limit:int, always_footer:bool=False) -> str:
+	ending = "…"
+	footer = "\n\n…"
+	if len(text) > limit:
+		text = (text[:(limit - len(ending + footer))].rstrip() + footer)
+	elif always_footer:
+		text = (text.rstrip() + footer)
+	return text
+
 def get_link(context:EventContext, data:InputMessageData):
 	data = (InputMessageData(**data) if type(data) == dict else data)
 	if (data.room and data.room.id):
@@ -374,42 +383,49 @@ def app_main() -> None:
 		if platform.main(f"./LibWinDog/Platforms/{platform.name}"):
 			app_log(f"{platform.name}, ", inline=True)
 	app_log("...Done. ✅️", inline=True, newline=True)
-	app_log("🐶️ WinDog Ready!")
-	while True:
-		time.sleep(9**9)
 
 if __name__ == '__main__':
 	app_log("🌞️ WinDog Starting...")
-	GlobalStrings = good_yaml_load(open("./WinDog.yaml", 'r').read())
-	Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
+	try:
+		GlobalStrings = good_yaml_load(open("./WinDog.yaml", 'r').read())
+		Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
 
-	for folder in ("LibWinDog/Platforms", "ModWinDog"):
-		match folder:
-			case "LibWinDog/Platforms":
-				app_log("📩️ Loading Platforms... ", newline=False)
-			case "ModWinDog":
-				app_log("🔩️ Loading Modules... ", newline=False)
-		for name in listdir(f"./{folder}"):
-			path = f"./{folder}/{name}"
-			if path.endswith(".py") and isfile(path):
-				exec(open(path).read())
-			elif isdir(path):
-				files = listdir(path)
-				if f"{name}.py" in files:
-					files.remove(f"{name}.py")
-					exec(open(f"{path}/{name}.py", 'r').read())
-				#for file in files:
-				#	if file.endswith(".py"):
-				#		exec(open(f"{path}/{file}", 'r').read())
-		app_log("...Done. ✅️", inline=True, newline=True)
+		for folder in ("LibWinDog/Platforms", "ModWinDog"):
+			match folder:
+				case "LibWinDog/Platforms":
+					app_log("📩️ Loading Platforms... ", newline=False)
+				case "ModWinDog":
+					app_log("🔩️ Loading Modules... ", newline=False)
+			for name in listdir(f"./{folder}"):
+				path = f"./{folder}/{name}"
+				if path.endswith(".py") and isfile(path):
+					exec(open(path).read())
+				elif isdir(path):
+					files = listdir(path)
+					if f"{name}.py" in files:
+						files.remove(f"{name}.py")
+						exec(open(f"{path}/{name}.py", 'r').read())
+					#for file in files:
+					#	if file.endswith(".py"):
+					#		exec(open(f"{path}/{file}", 'r').read())
+			app_log("...Done. ✅️", inline=True, newline=True)
 
-	app_log("💽️ Loading Configuration... ", newline=False)
-	if isfile("./Data/Config.py"):
-		exec(open("./Data/Config.py", 'r').read())
-	else:
-		write_new_config()
-	app_log("Done. ✅️", inline=True, newline=True)
+		app_log("💽️ Loading Configuration... ", newline=False)
+		if isfile("./Data/Config.py"):
+			exec(open("./Data/Config.py", 'r').read())
+		else:
+			write_new_config()
+		app_log("Done. ✅️", inline=True, newline=True)
 
-	app_main()
+		app_main()
+	except Exception:
+		app_log('')
+		app_log()
+		app_log("🛑 Error starting WinDog. Stopping...")
+		exit(1)
+
+	app_log("🐶️ WinDog Ready!")
+	while True:
+		time.sleep(9**9)
 	app_log("🌚️ WinDog Stopping...")
 
