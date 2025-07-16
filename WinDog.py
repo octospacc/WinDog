@@ -32,13 +32,13 @@ def app_log(text:str=None, level:str="?", *, newline:bool|None=None, inline:bool
 	if LogToConsole:
 		print(text, end=endline)
 	if LogToFile:
-		open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Data/Log.txt"), 'a').write(text + endline)
+		open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Data/Log.txt"), 'a', encoding="utf-8").write(text + endline)
 
 def get_exception_text(full:bool=False):
 	exc_type, exc_value, exc_traceback = sys_exc_info()
 	text = f'{exc_type.__qualname__}: {exc_value}'
 	if full:
-		text = f'@{exc_traceback.tb_frame.f_code.co_name}:{exc_traceback.tb_lineno} {text}'
+		text = f'@{exc_traceback.tb_frame.f_code.co_name}:{exc_traceback.tb_lineno} {text}; {format_exc()}'
 	return text
 
 def good_yaml_load(text:str):
@@ -270,6 +270,8 @@ def get_message(context:EventContext, data:InputMessageData, access_token:str=No
 def send_message(context:EventContext, data:OutputMessageData, *, from_sent:bool=False, status:int=200):
 	context = ObjectClone(context)
 	data = (OutputMessageData(**data) if type(data) == dict else data)
+	if data.text_plain:
+		data.text_plain = str(data.text_plain)
 	if data.text_html and not data.text_plain:
 		data.text_plain = BeautifulSoup(data.text_html, "html.parser").get_text()
 	elif data.text_markdown and not data.text_plain:
@@ -358,7 +360,10 @@ def call_endpoint(context:EventContext, data:InputMessageData):
 	context.endpoint = endpoint
 	if context.platform and callable(agent_info := Platforms[context.platform].agent_info):
 		Platforms[context.platform].agent_info = agent_info()
-	return endpoint.handler(context, data)
+	try:
+		return endpoint.handler(context, data)
+	except Exception:
+		send_status_error(context)
 
 def write_new_config() -> None:
 	app_log("💾️ No configuration found! Generating and writing to `./Data/Config.py`... ", inline=True)

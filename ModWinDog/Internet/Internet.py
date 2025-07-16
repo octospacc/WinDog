@@ -9,6 +9,8 @@ MicrosoftBingSettings = {}
 
 """ # end windog config # """
 
+#import lzma
+from base64 import b64encode
 from urlextract import URLExtract
 from urllib import parse as urlparse
 from urllib.request import urlopen, Request
@@ -17,18 +19,25 @@ from translate_shell.translate import translate as ts_translate
 def RandomHexString(length:int) -> str:
 	return ''.join([randchoice('0123456789abcdef') for i in range(length)])
 
-def HttpReq(url:str, method:str|None=None, *, body:bytes=None, headers:dict[str, str]={"User-Agent": WebUserAgent}):
-	return urlopen(Request(url, method=method, data=body, headers=headers))
+def HttpReq(url:str, method:str|None=None, *, body:bytes=None, headers:dict[str, str]={}):
+	return urlopen(Request(url, method=method, data=body, headers=({"User-Agent": WebUserAgent} | headers)))
+
+def HttpJsonReq(url:str, method:str|None=None, *, body:dict=None, headers:dict[str, str]={}):
+	return json.loads(HttpReq(url, method,
+		body=(json.dumps(body).encode() if body else None),
+		headers=({"Content-Type": "application/json"} | headers),
+	).read().decode())
 
 def cEmbedded(context:EventContext, data:InputMessageData):
 	language = data.user.settings.language
+	text = ''
 	if len(data.command.tokens) >= 2:
 		# Find links in command body
-		text = (data.text_markdown + ' ' + data.text_plain)
-	elif (quoted := data.quoted) and (quoted.text_plain or quoted.text_markdown or quoted.text_html):
+		text += (data.text_markdown + ' ' + data.text_plain)
+	if (quoted := data.quoted) and (quoted.text_plain or quoted.text_markdown or quoted.text_html):
 		# Find links in quoted message
-		text = ((quoted.text_markdown or '') + ' ' + (quoted.text_plain or '') + ' ' + (quoted.text_html or ''))
-	else:
+		text += ((quoted.text_markdown or '') + ' ' + (quoted.text_plain or '') + ' ' + (quoted.text_html or ''))
+	if not text:
 		return send_status_400(context, language)
 	urls = URLExtract().find_urls(text)
 	if len(urls) > 0:
@@ -53,10 +62,18 @@ def cEmbedded(context:EventContext, data:InputMessageData):
 		# 	url = (urlDomain + '/' + '/'.join(url.split('/')[1:]))
 		if urlDomain.startswith("www."):
 			urlDomain = '.'.join(urlDomain.split('.')[1:])
-		if urlDomain in ("facebook.com", "m.facebook.com", "instagram.com", "twitter.com", "x.com", "vm.tiktok.com", "tiktok.com", "threads.net", "threads.com"):
+		if urlDomain in (
+			"facebook.com", "m.facebook.com",
+			"instagram.com", "threads.net", "threads.com",
+			"pinterest.com", "pin.it",
+			"reddit.com", "old.reddit.com",
+			"t.me",
+			"twitter.com", "x.com",
+			"vm.tiktok.com", "tiktok.com",
+		) or urlDomain.endswith(".pinterest.com"):
 			url = f"https://proxatore.octt.eu.org/{url}"
 			proto = ''
-		elif urlDomain in ("youtube.com",):
+		elif urlDomain in ("youtube.com", "youtu.be", "bilibili.com"):
 			url = f"https://proxatore.octt.eu.org/{url}{'' if url.endswith('?') else '?'}&proxatore-htmlmedia=true&proxatore-mediaproxy=video"
 			proto = ''
 		return send_message(context, {"text_plain": f"{{{proto}{url}}}"})
@@ -64,7 +81,7 @@ def cEmbedded(context:EventContext, data:InputMessageData):
 
 def search_duckduckgo(query:str) -> dict:
 	url = f"https://html.duckduckgo.com/html?q={urlparse.quote(query)}"
-	request = HttpReq(url)
+	request = HttpReq(url, headers={"User-Agent": FallbackUserAgent})
 	results = []
 	for line in request.read().decode().replace('\t', ' ').splitlines():
 		if ' class="result__a" ' in line and ' href="//duckduckgo.com/l/?uddg=' in line:
@@ -74,7 +91,7 @@ def search_duckduckgo(query:str) -> dict:
 				results.append({"title": html_unescape(title[1].strip()), "link": link})
 	return results
 
-def format_search_result(link:str, title:str, index:int) -> str:
+def format_search_result(link:str, title:str, index:int=0) -> str:
 	return f'[{index + 1}] {title} : {{{link}}}\n\n'
 
 def cWeb(context:EventContext, data:InputMessageData):
@@ -106,6 +123,16 @@ def cWikipedia(context:EventContext, data:InputMessageData):
 	except Exception:
 		return send_status_error(context, language)
 
+def cYoutube(context:EventContext, data:InputMessageData):
+	language = data.user.settings.language
+	if not (query := data.command.body):
+		return send_status_400(context, language)
+	try:
+		result = search_duckduckgo(f"site:youtube.com {query}")[0]
+		return send_message(context, {"text_plain": format_search_result(f'https://proxatore.octt.eu.org/{result["link"].split("://")[1]}&proxatore-htmlmedia=true&proxatore-mediaproxy=video', result["title"])})
+	except Exception:
+		return send_status_error(context, language)
+
 def cFrittoMistoOctoSpacc(context:EventContext, data:InputMessageData):
 	language = data.user.settings.language
 	if not (query := data.command.body):
@@ -113,7 +140,7 @@ def cFrittoMistoOctoSpacc(context:EventContext, data:InputMessageData):
 	try:
 		query_url = urlparse.quote(query)
 		text = f'🍤🔎 "{query}": https://octospacc.altervista.org/?s={query_url}\n\n'
-		for i,e in enumerate(json.loads(HttpReq(f"https://octospacc.altervista.org/wp-json/wp/v2/posts?search={query_url}").read().decode())):
+		for i,e in enumerate(HttpJsonReq(f"https://octospacc.altervista.org/wp-json/wp/v2/posts?search={query_url}")):
 			text += format_search_result(e["link"], (e["title"]["rendered"] or e["slug"]), i)
 		return send_message(context, {"text_html": trim_text(text, 4096, True), "text_mode": "trim"})
 	except Exception:
@@ -186,10 +213,52 @@ def cSafebooru(context:EventContext, data:InputMessageData):
 	except Exception:
 		return send_status_error(context, language)
 
+def cIttyBitty(context:EventContext, data:InputMessageData):
+	text = (data.command.body or (data.quoted and data.quoted.text_plain))
+	if not text:
+		return send_status_400(context, data.user.settings.language)
+	data = b64encode(("<style>body{color:black;background-color:white;}</style>" + text).encode("utf-8")).decode()
+	prefix = "https://itty.bitty.site/#/"
+	link = prefix + "data:text/html;charset=utf-8;base64," + data # b64encode(lzma.compress(bytes(text, encoding="utf-8"), format=lzma.FORMAT_ALONE, preset=9)).decode("utf-8")
+	return send_message(context, {"text_plain": link, "text_html": f'<a href="{link}"><i>{prefix}...{link[-32:]}</i></a>'})
+
+class PignioModuleSettings(BaseModel):
+	user = ForeignKeyField(User)
+	instance = CharField()
+	token = CharField()
+
+def cPignio(context:EventContext, data:InputMessageData):
+	Db.create_tables([PignioModuleSettings], safe=True)
+	language = data.user.settings.language
+	if data.command.name == "pignio":
+		try:
+			pignio = PignioModuleSettings.get(PignioModuleSettings.user == data.user.id)
+			if data.quoted and (media := data.quoted.media) and media.type.startswith("image/"):
+				link = data.command.body or data.quoted.message_url
+				title = f"Saved with WinDog ({data.quoted.timestamp})" # data.command.body or "Saved with WinDog"
+				image = get_media_link(media.url, type=media.type, timestamp=data.quoted.timestamp, access_token=tuple(WebTokens)[0])
+				result = HttpJsonReq(f"{pignio.instance}/api/items", "POST", body={"link": link, "image": image, "title": title, "description": data.quoted.text_plain or ""}, headers={"Cookie": f"session={pignio.token}"})
+				return send_message(context, {"text_html": f'<pre>{pignio.instance}/item/{result["id"]}</pre>'})
+		except PignioModuleSettings.DoesNotExist:
+			return send_message(context, {"text_plain": "No Pignio profile is set up! Use /SetPignio first."})
+	elif data.command.name == "setpignio" and len(data.command.tokens) >= 3:
+		# TODO: verify if credentials are working before writing to db
+		# TODO: block this from working in group chats and delete user sent message if possible to prevent users leaking their credentials?
+		instance = data.command.tokens[1]
+		token = data.command.tokens[2]
+		try:
+			PignioModuleSettings.get(PignioModuleSettings.user == data.user.id)
+			PignioModuleSettings.update(instance=instance, token=token).where(PignioModuleSettings.user == data.user.id).execute()
+		except PignioModuleSettings.DoesNotExist:
+			PignioModuleSettings.create(instance=instance, token=token, user=data.user.id)
+		return send_message(context, {"text_plain": "Done! You can now use /Pignio."})
+	return send_status_400(context, language)
+
 register_module(name="Internet", endpoints=[
 	SafeNamespace(names=["embedded", "embed", "proxy", "proxatore", "sborratore"], handler=cEmbedded, body=False, quoted=False),
 	SafeNamespace(names=["web", "search", "duck", "duckduckgo"], handler=cWeb, body=True),
 	SafeNamespace(names=["wikipedia", "wokipedia", "wiki"], handler=cWikipedia, body=True),
+	SafeNamespace(names=["youtube", "yt", "video"], handler=cYoutube, body=True),
 	SafeNamespace(names=["frittomistodioctospacc", "fmos", "frittomisto", "octospacc"], handler=cFrittoMistoOctoSpacc, body=True),
 	SafeNamespace(names=["translate"], handler=cTranslate, body=False, quoted=False, arguments={
 		"language_to": True,
@@ -197,5 +266,7 @@ register_module(name="Internet", endpoints=[
 	}),
 	#SafeNamespace(names=["unsplash"], summary="Sends a picture sourced from Unsplash.", handler=cUnsplash),
 	SafeNamespace(names=["safebooru"], handler=cSafebooru, body=False),
+	SafeNamespace(names=["ittybitty", "ib"], handler=cIttyBitty, body=False, quoted=False),
+	SafeNamespace(names=["pignio", "setpignio"], handler=cPignio),
 ])
 

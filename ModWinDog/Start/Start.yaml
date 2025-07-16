@@ -1,9 +1,11 @@
 summary:
 	en: Things related to starting the bot, on supported platforms.
+	it: Cose relative all'avvio del bot, sulle piattaforme supportate.
 endpoints:
 	start:
 		summary:
 			en: Salutes the user, hinting that the bot is working and providing basic quick help.
+			it: Saluta l'utente, indicando che il bot funziona e fornendo aiuto di base.
 		start:
 			en: |
 				<b>Hi</b> {0}<b>!</b>

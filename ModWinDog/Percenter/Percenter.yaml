@@ -1,5 +1,6 @@
 summary:
-	en: Provides fun trough percentage-based toys.
+	en: Provides great fun trough toys based on random percentages.
+	it: Fornisce grande spasso con giochini basati su percentuali casuali.
 endpoints:
 	wish:
 		empty:

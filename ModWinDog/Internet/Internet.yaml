@@ -1,16 +1,27 @@
 summary:
 	en: Tools and toys related to the Internet.
+	it: Strumenti e giocattoli relativi ad Internet.
 endpoints:
 	embedded:
 		summary:
 			en: Rewrite a link, bypassing embed view protections for known sites.
+			it: Riscrive un link, bypassando le protezioni contro l'embedding per siti conosciuti.
 	web:
 		summary:
-			en: Provides results of a DuckDuckGo search.
+			en: Provides results of a <i>DuckDuckGo</i> search.
+			it: Fornisce risultati di una ricerca su <i>DuckDuckGo</i>.
+	frittomistodioctospacc:
+		summary:
+			it: Fa una ricerca sul <a href="https://octospacc.altervista.org/"><i>fritto misto di octospacc</i></a>.
 	translate:
 		summary:
 			en: Returns the received message after translating it in another language.
+			it: Restituisce il messaggio ricevuto dopo averlo tradotto in un'altra lingua.
 	safebooru:
 		summary:
-			en: Sends a picture sourced from Safebooru.
-
+			en: Sends a picture sourced from <i>Safebooru</i>.
+			it: Invia un'immagine pescata da <i>Safebooru</i>.
+	ittybitty:
+		summary:
+			en: Transforms the text into an <i>itty.bitty.site</i> link for viewing in a browser.
+			it: Trasforma il testo in un link di <i>itty.bitty.site</i> per la visualizzazione in un browser.
