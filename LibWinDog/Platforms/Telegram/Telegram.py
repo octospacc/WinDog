@@ -24,6 +24,7 @@ from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContex
 from base64 import urlsafe_b64encode
 from hashlib import sha256
 from hmac import new as hmac_new
+from LibWinDog.Types import *
 
 TelegramClient = None
 
@@ -45,7 +46,7 @@ def TelegramMain(path:str) -> bool:
 	#app.run_polling(allowed_updates=Update.ALL_TYPES)
 	return True
 
-def TelegramMakeUserData(user:telegram.User) -> UserData:
+def TelegramMakeUserData(user:telegram.User) -> UserData|None:
 	if not user:
 		return None
 	return UserData(
@@ -54,7 +55,7 @@ def TelegramMakeUserData(user:telegram.User) -> UserData:
 		name = user.first_name,
 	)
 
-def TelegramMakeInputMessageData(message:telegram.Message, access_token:str=None) -> InputMessageData:
+def TelegramMakeInputMessageData(message:telegram.Message, access_token:str|None=None) -> InputMessageData:
 	#if not message:
 	#	return None
 	timestamp = int(time.mktime(message.date.timetuple()))

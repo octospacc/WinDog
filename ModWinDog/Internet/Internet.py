@@ -244,7 +244,7 @@ def cPignio(context:EventContext, data:InputMessageData):
 	elif data.command.name == "setpignio" and len(data.command.tokens) >= 3:
 		# TODO: verify if credentials are working before writing to db
 		# TODO: block this from working in group chats and delete user sent message if possible to prevent users leaking their credentials?
-		instance = data.command.tokens[1]
+		instance = data.command.tokens[1].removesuffix("/")
 		token = data.command.tokens[2]
 		try:
 			PignioModuleSettings.get(PignioModuleSettings.user == data.user.id)

@@ -1,5 +1,6 @@
 /Data/
 /downloaded_files/
+.mypy_cache/
 *.bak
 *.tmp
 *.pyc

@@ -6,11 +6,13 @@
 from peewee import *
 from LibWinDog.Types import *
 
-Db = SqliteDatabase("./Data/Database.sqlite")
+Db: SqliteDatabase
+DbProxy = Proxy()
 
 class BaseModel(Model):
 	class Meta:
-		database = Db
+		database = DbProxy
+	DoesNotExist: type[DoesNotExist]
 
 class EntitySettings(BaseModel):
 	language = CharField(null=True)
@@ -64,21 +66,23 @@ class FilterToRoom(BaseModel):
 	filter = ForeignKeyField(Filter, backref="room_links")
 	room = ForeignKeyField(Room, backref="filter_links")
 
-UserToRoomDeferred.set_model(UserToRoom)
-FilterToRoomDeferred.set_model(FilterToRoom)
-
-Db.create_tables([
-	EntitySettings, File, Filter,
-	User, Room,
-	FilterToRoom, UserToRoom,
-], safe=True)
-
 class UserSettingsData():
-	def __new__(cls, user_id:str=None) -> SafeNamespace:
+	def __new__(cls, user_id:str|None=None) -> SafeNamespace:
 		settings = None
 		try:
 			settings = EntitySettings.select().join(User).where(User.id == user_id).dicts().get()
 		except EntitySettings.DoesNotExist:
 			pass
 		return SafeNamespace(**(settings or {}), _exists=bool(settings))
+
+def init_database():
+	UserToRoomDeferred.set_model(UserToRoom)
+	FilterToRoomDeferred.set_model(FilterToRoom)
+	Db = SqliteDatabase("./Data/Database.sqlite")
+	DbProxy.initialize(Db)
+	Db.create_tables([
+		EntitySettings, File, Filter,
+		User, Room,
+		FilterToRoom, UserToRoom,
+	], safe=True)
 

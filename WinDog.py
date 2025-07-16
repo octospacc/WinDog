@@ -8,7 +8,7 @@ import json, time
 from glob import glob
 from hashlib import new as hashlib_new
 from html import escape as html_escape, unescape as html_unescape
-from os import listdir
+from os import listdir, mkdir
 from os.path import isfile, isdir
 from random import choice, choice as randchoice, randint
 from sys import exc_info as sys_exc_info
@@ -17,12 +17,13 @@ from traceback import format_exc, format_exc as traceback_format_exc
 from urllib import parse as urlparse, parse as urllib_parse
 from yaml import load as yaml_load, BaseLoader as yaml_BaseLoader
 from bs4 import BeautifulSoup
+from typing import cast, Any
 from LibWinDog.Types import *
 from LibWinDog.Config import *
 from LibWinDog.Database import *
 from LibWinDog.Utils import *
 
-def app_log(text:str=None, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
+def app_log(text:str|None=None, level:str="?", *, newline:bool|None=None, inline:bool=False) -> None:
 	if text == None:
 		text = get_exception_text(full=True)
 	endline = '\n'
@@ -31,20 +32,25 @@ def app_log(text:str=None, level:str="?", *, newline:bool|None=None, inline:bool
 	text = (str(text) if inline else f"[{level}] [{time.ctime()}] [{int(time.time())}] {text}")
 	if LogToConsole:
 		print(text, end=endline)
+	if not isdir("./Data"):
+		mkdir("./Data")
 	if LogToFile:
 		open((DumpToFile if (DumpToFile and type(DumpToFile) == str) else "./Data/Log.txt"), 'a', encoding="utf-8").write(text + endline)
 
-def get_exception_text(full:bool=False):
+def get_exception_text(full:bool=False) -> str:
+	text = ""
 	exc_type, exc_value, exc_traceback = sys_exc_info()
-	text = f'{exc_type.__qualname__}: {exc_value}'
-	if full:
-		text = f'@{exc_traceback.tb_frame.f_code.co_name}:{exc_traceback.tb_lineno} {text}; {format_exc()}'
+	if exc_type:
+		text = f"{exc_type.__qualname__}: "
+	text += str(exc_value)
+	if full and exc_traceback:
+		text = f"@{exc_traceback.tb_frame.f_code.co_name}:{exc_traceback.tb_lineno} {text}; {format_exc()}"
 	return text
 
-def good_yaml_load(text:str):
+def good_yaml_load(text:str) -> Any:
 	return yaml_load(text.replace("\t", "    "), Loader=yaml_BaseLoader)
 
-def data_to_dict(data:object):
+def data_to_dict(data:object) -> dict[str, Any]:
 	def dict_filter_meta(dikt:dict):
 		remove = []
 		for key in dikt:
@@ -57,15 +63,16 @@ def data_to_dict(data:object):
 		return dikt
 	return dict_filter_meta(json.loads(json.dumps(data, default=(lambda obj: (obj.__dict__ if not callable(obj) else None)))))
 
-def data_to_json(data:object, **jsonargs):
+def data_to_json(data:object, **jsonargs) -> str:
 	return json.dumps(data_to_dict(data), **jsonargs)
 
-def get_string(bank:dict, query:str, lang:str=None) -> str|list[str]|None:
+def get_string(bank:dict, query:str, lang:str|None=None) -> str|list[str]|None:
+	result: str|list[str]|None = None
 	if type(result := obj_get(bank, query)) != str:
 		if not (result := obj_get(bank, f"{query}.{lang or DefaultLanguage}")):
 			if not (result := obj_get(bank, f"{query}.en")):
 				result = obj_get(bank, query)
-	if result:
+	if type(result) is str:
 		result = result.strip()
 	return result
 
@@ -103,11 +110,11 @@ def get_help_text(endpoint, lang:str=None, prefix:str=None) -> str:
 		text += f'\n\n{extra}'
 	return text
 
-def parse_command_arguments(command, endpoint, count:int=None):
+def parse_command_arguments(command, endpoint, count:int|None=None):
 	arguments = SafeNamespace()
 	body = command.body
 	index = 1
-	for key in (endpoint.arguments or range(count)):
+	for key in (endpoint.arguments or range(count or 0)):
 		if (not count) and (endpoint.body != None) and (endpoint.arguments[key] == False):
 			continue # skip optional (False) arguments for now if command expects a body, they will be implemented later
 		try:
@@ -119,7 +126,7 @@ def parse_command_arguments(command, endpoint, count:int=None):
 		index += 1
 	return [arguments, body]
 
-def TextCommandData(text:str, platform:str=None) -> CommandData|None:
+def TextCommandData(text:str, platform:str|None=None) -> CommandData|None:
 	if not text:
 		return None
 	text = text.strip()
@@ -128,7 +135,7 @@ def TextCommandData(text:str, platform:str=None) -> CommandData|None:
 			return None
 	except IndexError:
 		return None
-	command = SafeNamespace()
+	command = CommandData()
 	command.tokens = text.split()
 	command.prefix = command.tokens[0][0]
 	command.name, command_target = (command.tokens[0][1:].lower().split('@') + [''])[:2]
@@ -192,7 +199,7 @@ def update_user_db(user:SafeNamespace) -> None:
 		except User.DoesNotExist:
 			User.create(id=user.id, id_hash=user_hash)
 
-def dump_message(data:InputMessageData, prefix:str='') -> None:
+def dump_message(data:MessageData, prefix:str='') -> None:
 	if not (Debug and (DumpToFile or DumpToConsole)):
 		return
 	text = (data.text_plain.replace('\n', '\\n') if data.text_plain else '')
@@ -250,7 +257,7 @@ def get_media_link(url:str, type:str=None, timestamp:int=None, access_token:str=
 		url = WebConfig["url"] + f"/api/v1/FileProxy/?url={url}&type={type or ''}&timestamp={timestamp}&token={get_media_token_hash(url, timestamp, access_token)}"
 	return url
 
-def get_message(context:EventContext, data:InputMessageData, access_token:str=None) -> InputMessageData:
+def get_message(context:EventContext, data:InputMessageData, access_token:str|None=None) -> InputMessageData:
 	data = (InputMessageData(**data) if type(data) == dict else data)
 	tokens = data.room.id.split(':')
 	if tokens[0] != context.platform:
@@ -328,7 +335,7 @@ def register_platform(name:str, main:callable, getter:callable=None, linker:call
 def register_module(name:str, endpoints:dict, *, group:str|None=None) -> None:
 	module = SafeNamespace(group=group, endpoints=endpoints, get_string=(lambda query, lang=None: None))
 	if isfile(file := f"./ModWinDog/{name}/{name}.yaml"):
-		module.strings = good_yaml_load(open(file, 'r').read())
+		module.strings = good_yaml_load(read_textual(file))
 		module.get_string = (lambda query, lang=None: get_string(module.strings, query, lang))
 	Modules[name] = module
 	if group not in ModuleGroups:
@@ -367,67 +374,77 @@ def call_endpoint(context:EventContext, data:InputMessageData):
 
 def write_new_config() -> None:
 	app_log("💾️ No configuration found! Generating and writing to `./Data/Config.py`... ", inline=True)
-	with open("./Data/Config.py", 'w') as config_file:
+	with open("./Data/Config.py", 'w', encoding="utf-8") as config_file:
 		opening = '# windog config start #'
 		closing = '# end windog config #'
 		for folder in ("LibWinDog", "ModWinDog"):
 			for file in glob(f"./{folder}/**/*.py", recursive=True):
 				try:
-					name = '/'.join(file.split('/')[1:-1])
+					name = '/'.join(file.replace('\\', '/').split('/')[1:-1])
 					heading = f"# ==={'=' * len(name)}=== #"
-					source = open(file, 'r').read().replace(f"''' {opening}", f'""" {opening}').replace(f"{closing} '''", f'{closing} """')
-					content = '\n'.join(content.split(f'""" {opening}')[1].split(f'{closing} """')[0].split('\n')[1:-1])
+					source = read_textual(file).replace(f"''' {opening}", f'""" {opening}').replace(f"{closing} '''", f'{closing} """')
+					content = '\n'.join(source.split(f'""" {opening}')[1].split(f'{closing} """')[0].split('\n')[1:-1])
 					config_file.write(f"{heading}\n# 🔽️ {name} 🔽️ #\n{heading}\n{content}\n\n")
 				except IndexError:
 					pass
 
 def app_main() -> None:
-	#SetupDb()
+	init_database()
 	app_log(f"📨️ Initializing Platforms... ", newline=False)
 	for platform in Platforms.values():
 		if platform.main(f"./LibWinDog/Platforms/{platform.name}"):
 			app_log(f"{platform.name}, ", inline=True)
 	app_log("...Done. ✅️", inline=True, newline=True)
 
+def handle_start_error(e:Exception) -> None:
+	app_log('')
+	app_log()
+	if FailOnImportError or type(e) != ModuleNotFoundError:
+		app_log("🛑 Error starting WinDog. Stopping...")
+		exit(1)
+
 if __name__ == '__main__':
 	app_log("🌞️ WinDog Starting...")
-	try:
-		GlobalStrings = good_yaml_load(open("./WinDog.yaml", 'r').read())
-		Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
 
-		for folder in ("LibWinDog/Platforms", "ModWinDog"):
-			match folder:
-				case "LibWinDog/Platforms":
-					app_log("📩️ Loading Platforms... ", newline=False)
-				case "ModWinDog":
-					app_log("🔩️ Loading Modules... ", newline=False)
-			for name in listdir(f"./{folder}"):
+	try:
+		GlobalStrings = good_yaml_load(read_textual("./WinDog.yaml"))
+	except Exception as e:
+		handle_start_error(e)
+
+	Platforms, Modules, ModuleGroups, Endpoints = {}, {}, {}, {}
+	for folder in ("LibWinDog/Platforms", "ModWinDog"):
+		match folder:
+			case "LibWinDog/Platforms":
+				app_log("📩️ Loading Platforms... ", newline=False)
+			case "ModWinDog":
+				app_log("🔩️ Loading Modules... ", newline=False)
+		for name in listdir(f"./{folder}"):
+			try:
 				path = f"./{folder}/{name}"
 				if path.endswith(".py") and isfile(path):
-					exec(open(path).read())
+					exec(read_textual(path))
 				elif isdir(path):
 					files = listdir(path)
 					if f"{name}.py" in files:
 						files.remove(f"{name}.py")
-						exec(open(f"{path}/{name}.py", 'r').read())
+						exec(read_textual(f"{path}/{name}.py"))
 					#for file in files:
 					#	if file.endswith(".py"):
 					#		exec(open(f"{path}/{file}", 'r').read())
-			app_log("...Done. ✅️", inline=True, newline=True)
+			except Exception as e:
+				handle_start_error(e)
+		app_log("...Done. ✅️", inline=True, newline=True)
 
+	try:
 		app_log("💽️ Loading Configuration... ", newline=False)
 		if isfile("./Data/Config.py"):
-			exec(open("./Data/Config.py", 'r').read())
+			exec(read_textual("./Data/Config.py"))
 		else:
 			write_new_config()
 		app_log("Done. ✅️", inline=True, newline=True)
-
 		app_main()
-	except Exception:
-		app_log('')
-		app_log()
-		app_log("🛑 Error starting WinDog. Stopping...")
-		exit(1)
+	except Exception as e:
+		handle_start_error(e)
 
 	app_log("🐶️ WinDog Ready!")
 	while True:
