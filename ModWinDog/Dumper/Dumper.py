@@ -12,6 +12,7 @@ def get_message_wrapper(context:EventContext, data:InputMessageData):
 
 # TODO dump and getmessage should work with links to messages!
 
+# TODO can we somehow read the quoted message's quoted message on Telegram?
 def cDump(context:EventContext, data:InputMessageData):
 	if not (message := (data.quoted or get_message_wrapper(context, data))):
 		return send_status_400(context, data.user.settings.language)

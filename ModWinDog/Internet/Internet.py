@@ -228,16 +228,18 @@ class PignioModuleSettings(BaseModel):
 	token = CharField()
 
 def cPignio(context:EventContext, data:InputMessageData):
-	Db.create_tables([PignioModuleSettings], safe=True)
+	# global Db
+	# Db = DbGlob["Db"]
+	Globals.Db.create_tables([PignioModuleSettings], safe=True)
 	language = data.user.settings.language
 	if data.command.name == "pignio":
 		try:
 			pignio = PignioModuleSettings.get(PignioModuleSettings.user == data.user.id)
-			if data.quoted and (media := data.quoted.media) and media.type.startswith("image/"):
-				link = data.command.body or data.quoted.message_url
+			if data.quoted and (media := data.quoted.media): # and media.type.startswith("image/"):
+				link = data.command.body or (data.quoted.origin and (data.quoted.origin.url_canonical or data.quoted.origin.url)) or data.quoted.message_url
 				title = f"Saved with WinDog ({data.quoted.timestamp})" # data.command.body or "Saved with WinDog"
 				image = get_media_link(media.url, type=media.type, timestamp=data.quoted.timestamp, access_token=tuple(WebTokens)[0])
-				result = HttpJsonReq(f"{pignio.instance}/api/items", "POST", body={"link": link, "image": image, "title": title, "description": data.quoted.text_plain or ""}, headers={"Cookie": f"session={pignio.token}"})
+				result = HttpJsonReq(f"{pignio.instance}/api/items", "POST", body={"link": link, media.type.split("/")[0]: image, "title": title, "description": data.quoted.text_plain or ""}, headers={"Cookie": f"session={pignio.token}"})
 				return send_message(context, {"text_html": f'<pre>{pignio.instance}/item/{result["id"]}</pre>'})
 		except PignioModuleSettings.DoesNotExist:
 			return send_message(context, {"text_plain": "No Pignio profile is set up! Use /SetPignio first."})
@@ -246,11 +248,7 @@ def cPignio(context:EventContext, data:InputMessageData):
 		# TODO: block this from working in group chats and delete user sent message if possible to prevent users leaking their credentials?
 		instance = data.command.tokens[1].removesuffix("/")
 		token = data.command.tokens[2]
-		try:
-			PignioModuleSettings.get(PignioModuleSettings.user == data.user.id)
-			PignioModuleSettings.update(instance=instance, token=token).where(PignioModuleSettings.user == data.user.id).execute()
-		except PignioModuleSettings.DoesNotExist:
-			PignioModuleSettings.create(instance=instance, token=token, user=data.user.id)
+		update_or_create(PignioModuleSettings, {"user": data.user.id}, {"instance": instance, "token": token})
 		return send_message(context, {"text_plain": "Done! You can now use /Pignio."})
 	return send_status_400(context, language)
 

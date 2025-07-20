@@ -55,6 +55,13 @@ def TelegramMakeUserData(user:telegram.User) -> UserData|None:
 		name = user.first_name,
 	)
 
+def TelegramMakeRoomData(chat:telegram.Chat) -> SafeNamespace:
+	return SafeNamespace(
+		id = f"telegram:{chat.id}",
+		tag = chat.username,
+		name = (chat.title or chat.first_name),
+	)
+
 def TelegramMakeInputMessageData(message:telegram.Message, access_token:str|None=None) -> InputMessageData:
 	#if not message:
 	#	return None
@@ -78,18 +85,30 @@ def TelegramMakeInputMessageData(message:telegram.Message, access_token:str|None
 		text_markdown = message.text_markdown_v2,
 		media = media,
 		user = TelegramMakeUserData(message.from_user),
-		room = SafeNamespace(
-			id = f"telegram:{message.chat.id}",
-			tag = message.chat.username,
-			name = (message.chat.title or message.chat.first_name),
-		),
+		room = TelegramMakeRoomData(message.chat),
 	)
+	if message.forward_date:
+		data.origin = SafeNamespace(
+			message_id = message.forward_from_message_id,
+			timestamp = int(time.mktime(message.forward_date.timetuple())),
+		)
+		if message.forward_from:
+			data.origin.user = TelegramMakeUserData(message.forward_from)
+		elif message.forward_sender_name:
+			data.origin.user = UserData(name=message.forward_sender_name)
+		if message.forward_from_chat:
+			data.origin.room = TelegramMakeRoomData(message.forward_from_chat)
+			linked = TelegramLinker(data.origin)
+			data.origin.url = linked.message
+			data.origin.url_canonical = linked.message_canonical
 	data.command = TextCommandData(data.text_plain, "telegram")
 	if data.user:
 		data.user.settings = UserSettingsData(data.user.id)
 	linked = TelegramLinker(data)
 	data.message_url = linked.message
+	data.message_url_canonical = linked.message_canonical
 	data.room.url = linked.room
+	data.room.url_canonical = linked.room_canonical
 	return data
 
 def TelegramHandler(update:telegram.Update, context:CallbackContext=None) -> None:
@@ -160,8 +179,13 @@ def TelegramLinker(data:InputMessageData) -> SafeNamespace:
 			# apparently Telegram doesn't really support links to rooms by id without a message id, so we just use a null one
 			linked.room = f"https://t.me/c/{room_id}/0"
 			if data.message_id:
-				message_id = data.message_id.removeprefix("telegram:")
+				message_id = str(data.message_id).removeprefix("telegram:")
 				linked.message = f"https://t.me/c/{room_id}/{message_id}"
+	if (room_tag := data.room.tag):
+		linked.room_canonical = f"https://t.me/{room_tag}"
+		if data.message_id:
+			message_id = str(data.message_id).removeprefix("telegram:")
+			linked.message_canonical = f"{linked.room_canonical}/{message_id}"
 	return linked
 
 register_platform(

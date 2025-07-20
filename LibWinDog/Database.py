@@ -4,9 +4,11 @@
 # ==================================== #
 
 from peewee import *
+from LibWinDog.Globals import *
 from LibWinDog.Types import *
 
-Db: SqliteDatabase
+#DbGlob = {}
+#Db: SqliteDatabase|None = None
 DbProxy = Proxy()
 
 class BaseModel(Model):
@@ -76,9 +78,12 @@ class UserSettingsData():
 		return SafeNamespace(**(settings or {}), _exists=bool(settings))
 
 def init_database():
+	#global Db
 	UserToRoomDeferred.set_model(UserToRoom)
 	FilterToRoomDeferred.set_model(FilterToRoom)
 	Db = SqliteDatabase("./Data/Database.sqlite")
+	#DbGlob["Db"] = Db
+	Globals.Db = Db
 	DbProxy.initialize(Db)
 	Db.create_tables([
 		EntitySettings, File, Filter,

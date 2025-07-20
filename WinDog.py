@@ -18,6 +18,8 @@ from urllib import parse as urlparse, parse as urllib_parse
 from yaml import load as yaml_load, BaseLoader as yaml_BaseLoader
 from bs4 import BeautifulSoup
 from typing import cast, Any
+from functools import wraps
+from LibWinDog.Globals import *
 from LibWinDog.Types import *
 from LibWinDog.Config import *
 from LibWinDog.Database import *
@@ -186,6 +188,14 @@ def check_bot_admin(data:InputMessageData|UserData) -> bool:
 def check_room_admin(data:InputMessageData|UserData) -> bool:
 	return check_bot_admin(data)
 
+def require_bot_admin(endpoint):
+	@wraps(endpoint)
+	def wrapper(context: EventContext, data: InputMessageData):
+		if not check_bot_admin(data.user):
+			return send_status(context, 403, data.user.settings.language)
+		return endpoint(context, data)
+	return wrapper
+
 def update_user_db(user:SafeNamespace) -> None:
 	if not (user and user.id):
 		return
@@ -198,6 +208,17 @@ def update_user_db(user:SafeNamespace) -> None:
 			User.update(id=user.id).where(User.id_hash == user_hash).execute()
 		except User.DoesNotExist:
 			User.create(id=user.id, id_hash=user_hash)
+
+def update_or_create(model:type, lookup:dict, defaults:dict) -> None:
+	try:
+		obj = model.get(**lookup)
+		for key, value in defaults.items():
+			setattr(obj, key, value)
+		obj.save()
+	except model.DoesNotExist:
+		data = {**lookup, **defaults}
+		obj = model.create(**data)
+	return obj
 
 def dump_message(data:MessageData, prefix:str='') -> None:
 	if not (Debug and (DumpToFile or DumpToConsole)):
@@ -327,6 +348,9 @@ def get_file(context:EventContext, url:str, out=None):
 	if (not context.manager) and (manager := platform.manager_class):
 		context.manager = call_or_return(manager)
 	return platform.filegetter(context, ':'.join(tokens[1:]), out)
+
+def read_db_file(owner:str, path:str) -> str:
+	return File.get(owner=owner, path=path).content.decode("utf-8")
 
 def register_platform(name:str, main:callable, getter:callable=None, linker:callable=None, sender:callable=None, deleter:callable=None, filegetter:callable=None, *, event_class=None, manager_class=None, agent_info=None) -> None:
 	Platforms[name.lower()] = SafeNamespace(name=name, main=main, getter=getter, linker=linker, sender=sender, deleter=deleter, filegetter=filegetter, event_class=event_class, manager_class=manager_class, agent_info=agent_info)

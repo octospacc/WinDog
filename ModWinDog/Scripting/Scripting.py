@@ -27,7 +27,10 @@ def cLua(context:EventContext, data:InputMessageData):
 	# TODO update quoted api getting
 	if not (script_text := (data.command.body or (data.quoted and data.quoted.text_plain))):
 		return send_message(context, {"text_plain": "You must provide some Lua code to execute."})
+	if script_text.lower().startswith("file:/"):
+		script_text = read_db_file(data.user.id, "/".join(script_text.split("/")[1:]))
 	luaRuntime = NewLuaRuntime(max_memory=LuaMemoryLimit, register_eval=False, register_builtins=False, attribute_filter=luaAttributeFilter)
+	# luaRuntime.globals()["_windog"] = {"stdout": "", "echo": (lambda text: cEcho(context, ObjectUnion(data, {"text_plain": text})))}
 	luaRuntime.eval(f"""(function()
 _windog = {{ stdout = "" }}
 function print (text, endl) _windog.stdout = _windog.stdout .. tostring(text) .. (endl ~= false and "\\n" or "") end

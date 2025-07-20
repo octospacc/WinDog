@@ -27,9 +27,8 @@ def cExec(context:EventContext, data:InputMessageData):
 	text = (re_compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])").sub('', output))
 	return send_message(context, {"text_html": f'<pre>{html_escape(text)}</pre>'})
 
+@require_bot_admin
 def cRestart(context:EventContext, data:InputMessageData):
-	if not check_bot_admin(data.user):
-		return send_status(context, 403, data.user.settings.language)
 	open("./.WinDog.Restart.lock", 'w').close()
 	return send_message(context, {"text_plain": "Bot restart queued."})
 
